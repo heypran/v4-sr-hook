@@ -127,12 +127,7 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
             -delta.amount0()
         );
 
-        return (
-            BaseHook.beforeSwap.selector,
-            returnDelta,
-            // BeforeSwapDeltaLibrary.ZERO_DELTA,
-            0
-        );
+        return (BaseHook.beforeSwap.selector, returnDelta, 0);
     }
 
     function settleCurrenciesPostSwap(
@@ -211,44 +206,6 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
         _initializePool(key, sqrtPriceX96);
     }
 
-    function addLiquidity(
-        PoolKey calldata key,
-        // uint256 amount0,
-        // uint256 amount1
-
-        IPoolManager.ModifyLiquidityParams memory params
-    ) external {
-        // poolManager.unlock(
-        //     abi.encodeCall(
-        //         this.handleAddLiquidity,
-        //         (key.currency0, key.currency1, amount0, amount1, msg.sender)
-        //     )
-        // );
-
-        // delta = abi.decode(
-        //     manager.unlock(
-        //         abi.encode(
-        //             CallbackData(
-        //                 msg.sender,
-        //                 key,
-        //                 params,
-        //                 hookData,
-        //                 settleUsingBurn,
-        //                 takeClaims
-        //             )
-        //         )
-        //     ),
-        //     (BalanceDelta)
-        // );
-
-        // uint256 ethBalance = address(this).balance;
-        // if (ethBalance > 0) {
-        //     CurrencyLibrary.NATIVE.transfer(msg.sender, ethBalance);
-        // }
-
-        srAmmAddLiquidity(key, params);
-    }
-
     function afterAddLiquidity(
         address sender,
         PoolKey calldata key,
@@ -270,76 +227,5 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
         SrPool.SrPoolState storage srPoolState = _srPools[key.toId()];
 
         return (srPoolState.bid, srPoolState.offer);
-        //  Slot0 offer;
-        // Slot0 bid;
-        //return StateLibrary.getSlot0(poolManager, key.toId());
-    }
-
-    function handleAddLiquidity(
-        Currency currency0,
-        Currency currency1,
-        uint256 amount0,
-        uint256 amount1,
-        address sender
-    ) external selfOnly returns (bytes memory) {
-        //currency0.settle(poolManager, sender, uint256(amount0), false);
-        currency0.settle(poolManager, sender, amount0, false);
-        currency0.take(poolManager, address(this), amount0, true);
-
-        currency1.settle(poolManager, sender, amount1, false);
-        currency1.take(poolManager, address(this), amount1, true);
-
-        return abi.encode(amount0, amount1);
     }
 }
-
-//----/////////////////////
-// Take 1
-// beforeSwap
-// Check the swap direction, lets consider only zeroForOne, exact input
-// 1. if current slot is initialized with bidTick and bidSqrtX96
-//       if not initialized then initialize it
-// 2. settle fees and liquidity for previous slot
-// 3. If order is oneForZero (sell order)
-//        - Offer the starting bidPrice for the slot
-//        - Fill the order using the liquidity from previous below ticks
-//                - requires to keep track of fees and liquidity consumed
-// 4. if order is zeroForOne (buy order)
-//       - follow the normal flow? how can we make both work
-
-// beforeSwap
-// Take 2
-// Check the swap direction, lets consider only zeroForOne, exact input
-// 1. if current slot is initialized with bidTick and bidSqrtX96
-//       if not initialized then initialize it
-// 2. settle fees and liquidity for previous slot
-// 3. If order is oneForZero (sell order)
-//        - Offer the price as starting bidPrice/sqrt for the slot number
-//        - Increase the liquidity of the bid price
-// 4. if order is zeroForOne (buy order)
-//       - follow the normal flow? how can we make both work
-
-// Before Swap
-
-// Check if currentHasChanged
-//  yes-    update the current slot
-//          rebalance from changes from last slot
-//          store new bidPrice and offerPrice
-
-// Check if oneForZero (sell)
-//          Use  bidPrice as the current Price
-//          Consume liquidity from bidPrice tick
-//          If liquidity is full consumed at bidPrice tick,
-//              move the price to bidPrice- tickSpacing and continue
-//          Reduce the offerPrice normally
-//          Consider edge cases (?) tick crossovers etc.
-
-// Check if zeroForOne (sell)
-//          Add liquidity to bidPrice
-//          Increase the offer price normally
-//          Consider edge cases (?)
-//
-
-// afterSwap
-// 1. Check if bidTick exists for current slot, if not init the bidTick,bidSqrtx96 as current tick,sqrtX96
-// 2. Shift the liquidity for the current bidTick
