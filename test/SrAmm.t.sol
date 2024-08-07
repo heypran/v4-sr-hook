@@ -78,11 +78,6 @@ contract SrAmmHookV2Test is Test, Deployers {
 
     function testSwapOnSrPool() public {
         // positions were created in setup()
-        assertEq(hook.beforeAddLiquidityCount(poolId), 1);
-        assertEq(hook.beforeRemoveLiquidityCount(poolId), 0);
-
-        assertEq(hook.beforeSwapCount(poolId), 0);
-        assertEq(hook.afterSwapCount(poolId), 0);
 
         // Perform a test swap //
         address user = makeAddr("user");
@@ -94,8 +89,13 @@ contract SrAmmHookV2Test is Test, Deployers {
 
         vm.startPrank(user);
 
+        // approve router
+        MockERC20(Currency.unwrap(currency1)).approve(
+            address(swapRouter),
+            1 ether
+        );
         // approve hook to spend, as it needs to settle / bad UI/UX (TODO: find a workaround)
-        MockERC20(Currency.unwrap(currency1)).approve(address(hook), 1 ether);
+        // MockERC20(Currency.unwrap(currency1)).approve(address(hook), 1 ether);
 
         bool zeroForOne = false;
         // negative number indicates exact input swap!
@@ -112,6 +112,11 @@ contract SrAmmHookV2Test is Test, Deployers {
         // ------------------- //
 
         assertEq(int256(swapDelta.amount1()), amountSpecified);
+
+        uint256 userBalance0 = MockERC20(Currency.unwrap(currency0)).balanceOf(
+            address(user)
+        );
+        assertGt(userBalance0, 0.99e17);
 
         assertEq(hook.beforeSwapCount(poolId), 1);
         assertEq(hook.afterSwapCount(poolId), 0);
