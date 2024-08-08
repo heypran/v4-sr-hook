@@ -120,11 +120,19 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
 
         settleOutputTokenPostSwap(key, params, delta, swapper);
 
+        bool exactInput = params.amountSpecified < 0;
+        int128 unspecifiedAmount = (params.zeroForOne == exactInput)
+            ? delta.amount1()
+            : delta.amount0();
+
+        console.log("unspecifiedAmt");
+        console.logInt(unspecifiedAmount);
+
         // Handling only one case for now
         // oneForZero and exactInput
         // poolManager.sync(key.currency0);
         // poolManager.sync(key.currency1);
-        BeforeSwapDelta returnDelta = toBeforeSwapDelta(0, delta.amount0());
+        BeforeSwapDelta returnDelta = toBeforeSwapDelta(0, unspecifiedAmount);
 
         return (BaseHook.beforeSwap.selector, returnDelta, 0);
     }
@@ -140,31 +148,6 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
         console.logInt(delta.amount0());
         console.logInt(delta.amount1());
 
-        // if (delta.amount0() < 0) {
-        //     poolManager.sync(key.currency0);
-
-        //     IERC20Minimal(Currency.unwrap(key.currency0)).transferFrom(
-        //         address(sender),
-        //         address(poolManager),
-        //         uint128(-delta.amount0())
-        //     );
-        //     poolManager.settle(key.currency0);
-        // }
-
-        // if (delta.amount1() < 0) {
-        //     console.log("Settling amount1");
-        //     poolManager.sync(key.currency1);
-
-        //     IERC20Minimal(Currency.unwrap(key.currency1)).transferFrom(
-        //         address(sender),
-        //         address(poolManager),
-        //         uint128(-delta.amount1())
-        //     );
-
-        //     poolManager.settle(key.currency1);
-        // }
-        // poolManager.sync(key.currency1);
-        // poolManager.sync(key.currency0);
         if (delta.amount0() > 0) {
             console.log("taking amount0");
             poolManager.take(key.currency0, sender, uint128(delta.amount0()));
