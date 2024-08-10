@@ -25,6 +25,8 @@ import {FixedPoint128} from "v4-core/src/libraries/FixedPoint128.sol";
 import {ProtocolFeeLibrary} from "v4-core/src/libraries/ProtocolFeeLibrary.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 
+import "forge-std/console.sol";
+
 library SrPool {
     using SafeCast for *;
     using TickBitmap for mapping(int16 => uint256);
@@ -395,6 +397,11 @@ library SrPool {
         Slot0 offerSlotStart = self.offer;
         Slot0 bidSlotStart = self.bid;
 
+        console.log("zeroForOne");
+        console.log(params.zeroForOne);
+        console.log(offerSlotStart.sqrtPriceX96());
+        console.log(bidSlotStart.sqrtPriceX96());
+
         // if we are swapping zeroForOne token0 for token1
         // ticks moves right to left, considered as a sell trade at bidPrice
         bool zeroForOne = params.zeroForOne;
@@ -406,8 +413,14 @@ library SrPool {
         // if virtual bid liqudity is zero, that means its not initialized before
         // initially it will be same as offerTick
         uint128 virutalBidLiquidityStart = self.virtualBidliquidity == 0
-            ? self.liquidity + self.virtualBidliquidity
+            ? self.liquidity // + self.virtualBidliquidity
             : self.virtualBidliquidity;
+
+        console.log("virtualLiquidty");
+        console.log(virutalBidLiquidityStart);
+        console.log("Ticks");
+        console.logInt(offerSlotStart.tick());
+        console.logInt(bidSlotStart.tick());
 
         // ignoring the fees for now
         // uint256 protocolFee = zeroForOne
@@ -493,18 +506,31 @@ library SrPool {
                 srSwapState,
                 true // update bidSide
             );
+            console.log("amountSpecified Post BidSide");
+            console.logInt(srSwapState.amountCalculated.toInt128());
+            console.logInt(srSwapState.amountSpecifiedRemaining);
+
             newSrSwapState = computeSwapStepForOneSide(
                 self,
                 params,
                 srSwapState,
                 false // update offerSide
             );
+            console.log("amountSpecified Post SellSide");
+            console.logInt(srSwapState.amountCalculated.toInt128());
+            console.logInt(srSwapState.amountSpecifiedRemaining);
         } else {
             newSrSwapState = computeSwapStepForOneSide(
                 self,
                 params,
                 srSwapState,
                 false // update offerSide with virtual liquidity for bidSide
+            );
+            newSrSwapState = computeSwapStepForOneSide(
+                self,
+                params,
+                srSwapState,
+                true // update offerSide with virtual liquidity for bidSide
             );
         }
 
@@ -517,6 +543,10 @@ library SrPool {
         self.bid = bidSlotStart.setTick(srSwapState.bidTick).setSqrtPriceX96(
             srSwapState.sqrtBidPriceX96
         );
+
+        console.log("Ticks post swap");
+        console.logInt(self.offer.tick());
+        console.logInt(self.bid.tick());
 
         // update liquidity if it changed
         if (liquidityStart != srSwapState.liquidity)
@@ -567,12 +597,16 @@ library SrPool {
         // continue swapping as long as we haven't used the entire input/output and haven't reached the price limit
         while (
             !(srSwapState.amountSpecifiedRemaining == 0 ||
-                srSwapState.sqrtPriceX96 == params.sqrtPriceLimitX96 ||
-                srSwapState.sqrtBidPriceX96 == params.sqrtPriceLimitX96)
+                // short circuit
+                srSwapState.sqrtBidPriceX96 == params.sqrtPriceLimitX96 ||
+                srSwapState.sqrtPriceX96 == params.sqrtPriceLimitX96)
         ) {
             step.sqrtPriceStartX96 = isBidSide
                 ? srSwapState.sqrtBidPriceX96
                 : srSwapState.sqrtPriceX96;
+
+            // console.log("computeSwapStepForOneSide:  step.sqrtPriceStartX96");
+            // console.log(step.sqrtPriceStartX96);
 
             (step.tickNext, step.initialized) = self
                 .tickBitmap
@@ -698,7 +732,7 @@ library SrPool {
                         );
                     }
 
-                    // in case its not zeroForOne mean buy order and its executed at offerSide
+                    // in case its not zeroForOne means buy order and its executed at offerSide
                     // tick move left to right
                     // we want to update the virtual liquidity
                     if (!zeroForOne && !isBidSide) {

@@ -23,11 +23,15 @@ import {BalanceDelta, toBalanceDelta, BalanceDeltaLibrary} from "v4-core/src/typ
 import {Currency} from "v4-core/src/types/Currency.sol";
 import {BeforeSwapDelta, BeforeSwapDeltaLibrary, toBeforeSwapDelta} from "v4-core/src/types/BeforeSwapDelta.sol";
 import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
+import {TransientStateLibrary} from "v4-core/src/libraries/TransientStateLibrary.sol";
 
+import {SafeCast} from "v4-core/src/libraries/SafeCast.sol";
 import {CurrencyDelta} from "v4-core/src/libraries/CurrencyDelta.sol";
 import {CurrencySettler} from "v4-core/test/utils/CurrencySettler.sol";
 import {SrAmmV2} from "./SrAmmV2.sol";
 
+// test libs
+import {CurrencySettler} from "v4-core/test/utils/CurrencySettler.sol";
 import "forge-std/console.sol";
 
 contract SrAmmHookV2 is BaseHook, SrAmmV2 {
@@ -35,7 +39,10 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
     // using StateLibrary for IPoolManager;
     using CurrencyDelta for Currency;
     using CurrencySettler for Currency;
+    using CurrencySettler for Currency;
     // using BeforeSwapDeltaLibrary for int256;
+    using TransientStateLibrary for IPoolManager;
+    using SafeCast for uint256;
 
     // NOTE: ---------------------------------------------------------
     // state variables should typically be unique to a pool
@@ -52,13 +59,17 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
         SlotPrice offer;
     }
 
-    mapping(PoolId => uint256 count) public beforeSwapCount;
-    mapping(PoolId => uint256 count) public afterSwapCount;
-
-    mapping(PoolId => uint256 count) public beforeAddLiquidityCount;
-    mapping(PoolId => uint256 count) public beforeRemoveLiquidityCount;
-
+    struct CallbackData {
+        address sender;
+        PoolKey key;
+        IPoolManager.ModifyLiquidityParams params;
+        bytes hookData;
+        bool settleUsingBurn;
+        bool takeClaims;
+    }
     HookPoolState public hookPoolState;
+
+    int128 unspecifiedDelta;
 
     constructor(IPoolManager _poolManager) BaseHook(_poolManager) {}
 
@@ -72,15 +83,15 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
             Hooks.Permissions({
                 beforeInitialize: false,
                 afterInitialize: true, // initialize srPool
-                beforeAddLiquidity: true, // revert
+                beforeAddLiquidity: true, // revert // not used atm
                 afterAddLiquidity: true, // maintain artificial liquidity
                 beforeRemoveLiquidity: false,
                 afterRemoveLiquidity: false,
-                beforeSwap: true, // custom swap
-                afterSwap: false,
+                beforeSwap: true, // custom swap accounting
+                afterSwap: true, // settle reduced diffs
                 beforeDonate: false,
                 afterDonate: false,
-                beforeSwapReturnDelta: true, // custom swap
+                beforeSwapReturnDelta: true, // custom swap // not used atm
                 afterSwapReturnDelta: false,
                 afterAddLiquidityReturnDelta: false,
                 afterRemoveLiquidityReturnDelta: false
@@ -109,30 +120,66 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
         IPoolManager.SwapParams calldata params,
         bytes calldata hookData
     ) external override returns (bytes4, BeforeSwapDelta, uint24) {
-        beforeSwapCount[key.toId()]++;
-
         BalanceDelta delta = srAmmSwap(key, params);
         console.log("SrAmmHook.sol: swap delta ");
         console.logInt(delta.amount0());
         console.logInt(delta.amount1());
 
-        address swapper = abi.decode(hookData, (address));
-
-        settleOutputTokenPostSwap(key, params, delta, swapper);
-
         bool exactInput = params.amountSpecified < 0;
+        (Currency specified, Currency unspecified) = (params.zeroForOne ==
+            exactInput)
+            ? (key.currency0, key.currency1)
+            : (key.currency1, key.currency0);
+
+        uint256 specifiedAmount = exactInput
+            ? uint256(-params.amountSpecified)
+            : uint256(params.amountSpecified);
+
+        // address swapper = abi.decode(hookData, (address));
+        //        settleOutputTokenPostSwap(key, params, delta, swapper);
+
         int128 unspecifiedAmount = (params.zeroForOne == exactInput)
             ? delta.amount1()
             : delta.amount0();
+        BeforeSwapDelta returnDelta;
+        if (exactInput) {
+            // in exact-input swaps, the specified token is a debt that gets paid down by the swapper
+            // the unspecified token is credited to the PoolManager, that is claimed by the swapper
+            specified.take(poolManager, address(this), specifiedAmount, true);
+            unspecified.settle(
+                poolManager,
+                address(this),
+                uint128(unspecifiedAmount),
+                true
+            );
+
+            returnDelta = toBeforeSwapDelta(
+                specifiedAmount.toInt128(),
+                -unspecifiedAmount
+            );
+        } else {
+            // exactOutput
+            // in exact-output swaps, the unspecified token is a debt that gets paid down by the swapper
+            // the specified token is credited to the PoolManager, that is claimed by the swapper
+            unspecified.take(
+                poolManager,
+                address(this),
+                uint128(unspecifiedAmount),
+                true
+            );
+            specified.settle(poolManager, address(this), specifiedAmount, true);
+
+            returnDelta = toBeforeSwapDelta(
+                -specifiedAmount.toInt128(),
+                unspecifiedAmount
+            );
+        }
 
         console.log("unspecifiedAmt");
         console.logInt(unspecifiedAmount);
+        unspecifiedDelta = unspecifiedAmount;
 
-        // Handling only one case for now
-        // oneForZero and exactInput
-        // poolManager.sync(key.currency0);
-        // poolManager.sync(key.currency1);
-        BeforeSwapDelta returnDelta = toBeforeSwapDelta(0, unspecifiedAmount);
+        // BeforeSwapDelta returnDelta = toBeforeSwapDelta(0, unspecifiedAmount);
 
         return (BaseHook.beforeSwap.selector, returnDelta, 0);
     }
@@ -166,8 +213,6 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
         IPoolManager.ModifyLiquidityParams calldata,
         bytes calldata
     ) external override returns (bytes4) {
-        beforeAddLiquidityCount[key.toId()]++;
-
         // revert here
         // not used currently
         return BaseHook.beforeAddLiquidity.selector;
@@ -198,12 +243,31 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
         BalanceDelta delta,
         bytes calldata hookData
     ) external override returns (bytes4, BalanceDelta) {
-        srAmmAddLiquidity(key, params);
+        // not used will not be called
+        //srAmmAddLiquidity(key, params);
 
         return (
             BaseHook.afterAddLiquidity.selector,
             BalanceDeltaLibrary.ZERO_DELTA
         );
+    }
+
+    function afterSwap(
+        address sender,
+        PoolKey calldata,
+        IPoolManager.SwapParams calldata,
+        BalanceDelta delta,
+        bytes calldata hookData
+    ) external override returns (bytes4, int128) {
+        // console.log("After Swap delta");
+        // console.logInt(delta.amount0());
+        // console.logInt(delta.amount1());
+        // console.logInt(unspecifiedDelta);
+
+        //int128 diffSettledDelta = delta.amount0() + unspecifiedDelta;
+
+        //console.logInt(diffSettledDelta);
+        return (BaseHook.afterSwap.selector, 0);
     }
 
     function getSrPoolSlot0(
@@ -212,5 +276,108 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
         SrPool.SrPoolState storage srPoolState = _srPools[key.toId()];
 
         return (srPoolState.bid, srPoolState.offer);
+    }
+
+    // Add liquidity through the hook
+    // Not for prod
+    function addLiquidity(
+        PoolKey memory key,
+        IPoolManager.ModifyLiquidityParams memory params,
+        bytes memory hookData
+    ) public payable returns (BalanceDelta delta) {
+        // handle user liquidity mapping
+
+        delta = abi.decode(
+            poolManager.unlock(
+                abi.encode(
+                    CallbackData(msg.sender, key, params, hookData, false, true)
+                )
+            ),
+            (BalanceDelta)
+        );
+
+        // uint256 ethBalance = address(this).balance;
+        // if (ethBalance > 0) {
+        //     CurrencyLibrary.NATIVE.transfer(msg.sender, ethBalance);
+        // }
+    }
+
+    /// @dev Handle liquidity addition by taking tokens from the sender and claiming ERC6909 to the hook address
+    function unlockCallback(
+        bytes calldata rawData
+    ) external override poolManagerOnly returns (bytes memory) {
+        CallbackData memory data = abi.decode(rawData, (CallbackData));
+
+        // (BalanceDelta delta, ) = poolManager.modifyLiquidity(
+        //     data.key,
+        //     data.params,
+        //     data.hookData
+        // );
+        int256 delta0 = -data.params.liquidityDelta;
+        int256 delta1 = -data.params.liquidityDelta;
+        //console.log("custom liqudity modifyLiquidity");
+        // console.logInt(liquidityDelta);
+        // console.logInt(delta.amount0());
+        // console.logInt(delta.amount1());
+        // (, , int256 delta0) = _fetchBalances(
+        //     data.key.currency0,
+        //     data.sender,
+        //     address(this)
+        // );
+        // (, , int256 delta1) = _fetchBalances(
+        //     data.key.currency1,
+        //     data.sender,
+        //     address(this)
+        // );
+
+        console.log("custom liqudity");
+        console.logInt(delta0);
+        console.logInt(delta1);
+
+        data.key.currency0.settle(
+            poolManager,
+            data.sender,
+            uint256(-delta0),
+            data.settleUsingBurn
+        );
+
+        data.key.currency1.settle(
+            poolManager,
+            data.sender,
+            uint256(-delta1),
+            data.settleUsingBurn
+        );
+
+        data.key.currency0.take(
+            poolManager,
+            address(this),
+            uint256(-delta0),
+            data.takeClaims
+        );
+
+        data.key.currency1.take(
+            poolManager,
+            address(this),
+            uint256(-delta1),
+            data.takeClaims
+        );
+
+        srAmmAddLiquidity(data.key, data.params);
+        console.log("custom liqudity added");
+        return abi.encode(delta0, delta1);
+    }
+
+    function _fetchBalances(
+        Currency currency,
+        address user,
+        address deltaHolder
+    )
+        internal
+        view
+        returns (uint256 userBalance, uint256 poolBalance, int256 delta)
+    {
+        userBalance = currency.balanceOf(user);
+        poolBalance = currency.balanceOf(address(poolManager));
+        delta = poolManager.currencyDelta(deltaHolder, currency);
     }
 }
