@@ -26,6 +26,9 @@ contract SrAmmHookV2Test is Test, Deployers {
     SrAmmHookV2 hook;
     PoolId poolId;
 
+    address attacker;
+    address user;
+
     function setUp() public {
         // creates the pool manager, utility routers, and test tokens
         Deployers.deployFreshManagerAndRouters();
@@ -63,6 +66,7 @@ contract SrAmmHookV2Test is Test, Deployers {
         //     ZERO_BYTES
         // );
         addLiquidityViaHook();
+        fundAttackerUsers();
     }
 
     function addLiquidityViaHook() internal {
@@ -87,6 +91,32 @@ contract SrAmmHookV2Test is Test, Deployers {
         );
     }
 
+    function fundAttackerUsers() internal {
+        attacker = makeAddr("attacker");
+        user = makeAddr("user");
+
+        vm.deal(attacker, 1 ether);
+        vm.deal(user, 1 ether);
+    }
+
+    function fundCurrencyAndApproveRouter(
+        address to,
+        Currency currency,
+        uint256 amount
+    ) internal {
+        // TODO mint directly to user
+        MockERC20(Currency.unwrap(currency)).transfer(to, amount);
+
+        vm.startPrank(to);
+
+        MockERC20(Currency.unwrap(currency)).approve(
+            address(swapRouter),
+            amount
+        );
+
+        vm.stopPrank();
+    }
+
     function testSrPoolInitialized() public {
         (Slot0 bid, Slot0 offer) = hook.getSrPoolSlot0(key);
 
@@ -98,33 +128,22 @@ contract SrAmmHookV2Test is Test, Deployers {
         // positions were created in setup()
 
         // Perform a test swap //
-        address user = makeAddr("user");
-        uint256 token1AttackerBeforeAmount = 1 ether;
-        MockERC20(Currency.unwrap(currency1)).transfer(
-            address(user),
-            token1AttackerBeforeAmount
-        );
+
+        uint256 userAmount = 1 ether;
+        fundCurrencyAndApproveRouter(user, currency1, userAmount);
 
         vm.startPrank(user);
 
-        // approve router
-        MockERC20(Currency.unwrap(currency1)).approve(
-            address(swapRouter),
-            1 ether
-        );
-        // approve hook to spend, as it needs to settle / bad UI/UX (TODO: find a workaround)
-        // MockERC20(Currency.unwrap(currency1)).approve(address(hook), 1 ether);
-
         bool zeroForOne = false;
+
         // negative number indicates exact input swap!
         int256 amountSpecified = -1e18;
 
-        bytes memory hookdata = abi.encode(address(user));
         BalanceDelta swapDelta = swap(
             key,
             zeroForOne,
             amountSpecified,
-            hookdata
+            ZERO_BYTES
         );
         vm.stopPrank();
         // ------------------- //
@@ -134,6 +153,7 @@ contract SrAmmHookV2Test is Test, Deployers {
         uint256 userBalance0 = MockERC20(Currency.unwrap(currency0)).balanceOf(
             address(user)
         );
+
         assertGt(userBalance0, 0.99e17);
     }
 
@@ -145,93 +165,55 @@ contract SrAmmHookV2Test is Test, Deployers {
         console.log(bid.sqrtPriceX96());
         console.log(offer.sqrtPriceX96());
 
-        address attacker = makeAddr("attacker");
-        address user = makeAddr("user");
-
-        vm.deal(attacker, 1 ether);
-        vm.deal(user, 1 ether);
-
-        // trasfer token1 to attacker and user
+        // transfer token1 to attacker and user
         uint256 token1AttackerBeforeAmount = 10 ether;
-        MockERC20(Currency.unwrap(currency1)).transfer(
-            address(attacker),
+        uint256 token1UserBeforeAmount = 100 ether;
+        fundCurrencyAndApproveRouter(
+            attacker,
+            currency1,
             token1AttackerBeforeAmount
         );
-        uint256 token1UserBeforeAmount = 100 ether;
-        MockERC20(Currency.unwrap(currency1)).transfer(
-            address(user),
-            token1UserBeforeAmount
-        );
-
-        console.log("Balance of token1 of before attack");
-        console.log(
-            MockERC20(Currency.unwrap(currency1)).balanceOf(address(attacker))
-        );
-        console.log(
-            MockERC20(Currency.unwrap(currency1)).balanceOf(address(user))
-        );
+        fundCurrencyAndApproveRouter(user, currency1, token1UserBeforeAmount);
 
         // Perform a test sandwich attack //
         {
-            bytes memory hookdata;
-
             // ----attacker--- //
             console.log("attacker.......");
             vm.startPrank(attacker);
 
-            // approve swapRouter to spend, as it needs to settle
-            MockERC20(Currency.unwrap(currency1)).approve(
-                address(swapRouter),
-                token1AttackerBeforeAmount
-            );
+            // approval already given to swapRouter
 
-            hookdata = abi.encode(attacker);
             int256 attackerBuy1Amount = -int256(token1AttackerBeforeAmount); // negative number indicates exact input swap!
             BalanceDelta swapDelta = swap(
                 key,
                 false, //zerForOne false (buying at offerPrice, left to right)
                 attackerBuy1Amount,
-                hookdata
+                ZERO_BYTES
             );
             vm.stopPrank();
 
             // ----user--- //
             console.log("User.......");
             vm.startPrank(user);
+            // approval already given to swapRouter
 
-            MockERC20(Currency.unwrap(currency1)).approve(
-                address(swapRouter),
-                100 ether
-            );
-
-            hookdata = abi.encode(user);
             int256 userBuyAmount = -int256(token1UserBeforeAmount); // negative number indicates exact input swap!
             BalanceDelta swapDelta2 = swap(
                 key,
                 false, //zerForOne false (buying at offerPrice, left to right)
                 userBuyAmount,
-                hookdata
+                ZERO_BYTES
             );
             vm.stopPrank();
 
             // --- attacker --- //
             vm.startPrank(attacker);
             console.log("Attacker........");
-            hookdata = abi.encode(attacker);
 
-            console.log("Balance of token0, before sell");
-            console.log(
-                MockERC20(Currency.unwrap(currency0)).balanceOf(
-                    address(attacker)
-                )
-            );
-            // approve hook to spend, as it needs to settle / bad UI/UX
+            // approve router to spend
             MockERC20(Currency.unwrap(currency0)).approve(
                 address(swapRouter),
                 10 ether
-            );
-            console.log(
-                MockERC20(Currency.unwrap(currency0)).balanceOf(address(user))
             );
 
             // negative number indicates exact input swap!
@@ -241,13 +223,11 @@ contract SrAmmHookV2Test is Test, Deployers {
                 )
             );
 
-            console.logInt(attackerSellAmount);
-
             BalanceDelta swapDelta3 = swap(
                 key,
                 true, //zerForOne true (selling at bidPrice, right to left)
                 attackerSellAmount,
-                hookdata
+                ZERO_BYTES
             );
             vm.stopPrank();
         }
@@ -257,8 +237,6 @@ contract SrAmmHookV2Test is Test, Deployers {
         (Slot0 bid2, Slot0 offer2) = hook.getSrPoolSlot0(key);
         console.log(bid2.sqrtPriceX96());
         console.log(offer2.sqrtPriceX96());
-
-        console.log(bid.sqrtPriceX96() - bid2.sqrtPriceX96());
 
         console.log("Balance of token1 of after attack");
         uint256 attackerBalance = MockERC20(Currency.unwrap(currency1))
@@ -270,6 +248,7 @@ contract SrAmmHookV2Test is Test, Deployers {
         );
         console.log("Diff");
         uint256 diff = token1AttackerBeforeAmount - attackerBalance;
+        assertGt(token1AttackerBeforeAmount, attackerBalance);
         console.log(diff);
     }
 
@@ -282,45 +261,23 @@ contract SrAmmHookV2Test is Test, Deployers {
         console.log(bid.sqrtPriceX96());
         console.log(offer.sqrtPriceX96());
 
-        address attacker = makeAddr("attacker");
-        address user = makeAddr("user");
-
-        vm.deal(attacker, 1 ether);
-        vm.deal(user, 1 ether);
-
         // trasfer token1 to attacker and user
+
         uint256 token0AttackerBeforeAmount = 10 ether;
-        MockERC20(Currency.unwrap(currency0)).transfer(
-            address(attacker),
+        fundCurrencyAndApproveRouter(
+            attacker,
+            currency0,
             token0AttackerBeforeAmount
         );
-        uint256 token0UserBeforeAmount = 100 ether;
-        MockERC20(Currency.unwrap(currency0)).transfer(
-            address(user),
-            token0UserBeforeAmount
-        );
 
-        console.log("Balance of token1 of before attack");
-        console.log(
-            MockERC20(Currency.unwrap(currency0)).balanceOf(address(attacker))
-        );
-        console.log(
-            MockERC20(Currency.unwrap(currency0)).balanceOf(address(user))
-        );
+        uint256 token0UserBeforeAmount = 100 ether;
+        fundCurrencyAndApproveRouter(user, currency0, token0UserBeforeAmount);
 
         // Perform a test sandwich attack //
         {
-            bytes memory hookdata;
-
             // ----attacker--- //
             console.log("attacker.......");
             vm.startPrank(attacker);
-
-            // approve swapRouter to spend, as it needs to settle
-            MockERC20(Currency.unwrap(currency0)).approve(
-                address(swapRouter),
-                token0AttackerBeforeAmount
-            );
 
             //hookdata = abi.encode(attacker);
             int256 attackerBuy0Amount = -int256(token0AttackerBeforeAmount); // negative number indicates exact input swap!
@@ -336,39 +293,23 @@ contract SrAmmHookV2Test is Test, Deployers {
             console.log("User.......");
             vm.startPrank(user);
 
-            MockERC20(Currency.unwrap(currency0)).approve(
-                address(swapRouter),
-                100 ether
-            );
-
-            hookdata = abi.encode(user);
             int256 userBuyAmount = -int256(token0UserBeforeAmount); // negative number indicates exact input swap!
             BalanceDelta swapDelta2 = swap(
                 key,
                 true, //zerForOne true (selling at bidPrice, right to left)
                 userBuyAmount,
-                hookdata
+                ZERO_BYTES
             );
             vm.stopPrank();
 
             // --- attacker --- //
             vm.startPrank(attacker);
             console.log("Attacker........");
-            hookdata = abi.encode(attacker);
 
-            console.log("Balance of token1, before sell");
-            console.log(
-                MockERC20(Currency.unwrap(currency1)).balanceOf(
-                    address(attacker)
-                )
-            );
             // approve router to spend, as it needs to settle
             MockERC20(Currency.unwrap(currency1)).approve(
                 address(swapRouter),
                 10 ether
-            );
-            console.log(
-                MockERC20(Currency.unwrap(currency1)).balanceOf(address(user))
             );
 
             // negative number indicates exact input swap!
@@ -378,13 +319,11 @@ contract SrAmmHookV2Test is Test, Deployers {
                 )
             );
 
-            console.logInt(attackerSellAmount);
-
             BalanceDelta swapDelta3 = swap(
                 key,
                 false, //zerForOne false (buying at offerPrice, left to right)
                 attackerSellAmount,
-                hookdata
+                ZERO_BYTES
             );
             vm.stopPrank();
         }
@@ -395,14 +334,10 @@ contract SrAmmHookV2Test is Test, Deployers {
         console.log(bid2.sqrtPriceX96());
         console.log(offer2.sqrtPriceX96());
 
-        console.log("Balance of token1 of after attack");
         uint256 attackerBalance = MockERC20(Currency.unwrap(currency0))
             .balanceOf(address(attacker));
 
-        console.log(attackerBalance);
-        console.log(
-            MockERC20(Currency.unwrap(currency1)).balanceOf(address(user))
-        );
+        assertGt(token0AttackerBeforeAmount, attackerBalance);
         console.log("Diff");
         uint256 diff = token0AttackerBeforeAmount - attackerBalance;
         console.log(diff);
@@ -417,8 +352,6 @@ contract SrAmmHookV2Test is Test, Deployers {
     // Check if liquidity is handled correctly for zeroForOne
 
     // Check if liquidity is handled correctly for zeroForOne
-
-    //
 }
 
 // Normal Swap in PM: X1 -> Y1
@@ -428,5 +361,3 @@ contract SrAmmHookV2Test is Test, Deployers {
 // PM settles penging        X1 -> (Y1 - Y1Less)
 
 // Liquidity Scenario
-
-// -3 -2 -1 0 1 2 3
