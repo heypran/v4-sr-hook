@@ -56,6 +56,7 @@ contract SrAmmHookV2Test is Test, Deployers {
         poolId = key.toId();
         manager.initialize(key, SQRT_PRICE_1_1, ZERO_BYTES);
 
+        // Not using this
         // Provide full-range liquidity to the pool
         // modifyLiquidityRouter.modifyLiquidity(
         //     key,
@@ -69,7 +70,7 @@ contract SrAmmHookV2Test is Test, Deployers {
         // );
 
         addLiquidityViaHook(
-            1_000 ether,
+            10_000 ether,
             TickMath.minUsableTick(tickSpacing),
             TickMath.maxUsableTick(tickSpacing)
         );
@@ -135,7 +136,99 @@ contract SrAmmHookV2Test is Test, Deployers {
         assertEq(offer.sqrtPriceX96(), SQRT_PRICE_1_1);
     }
 
-    function testSwap1TokenOnSrPool() public {
+    function testSwapZeroForOneExactInput() public {
+        // positions were created in setup()
+
+        // Perform a test swap //
+        (Slot0 bid, Slot0 offer) = hook.getSrPoolSlot0(key);
+
+        // starting price
+        assertEq(bid.sqrtPriceX96(), SQRT_PRICE_1_1);
+        assertEq(offer.sqrtPriceX96(), SQRT_PRICE_1_1);
+
+        uint256 userAmount = 1 ether;
+        fundCurrencyAndApproveRouter(user, currency0, userAmount);
+
+        vm.startPrank(user);
+
+        bool zeroForOne = true;
+
+        // negative number indicates exact input swap!
+        int256 amountSpecified = -int256(userAmount);
+
+        BalanceDelta swapDelta = swap(
+            key,
+            zeroForOne,
+            amountSpecified,
+            ZERO_BYTES
+        );
+        vm.stopPrank();
+        // ------------------- //
+
+        (Slot0 postSwapBid, Slot0 postSwapOffer) = hook.getSrPoolSlot0(key);
+        console.log(postSwapBid.sqrtPriceX96());
+        // balance of token1
+        uint256 userBalance1 = MockERC20(Currency.unwrap(currency1)).balanceOf(
+            address(user)
+        );
+
+        // zeroForOne order is executed on the bid side
+        // offerSide should remain constant
+
+        assertEq(int256(swapDelta.amount0()), amountSpecified);
+        assertEq(postSwapBid.tick(), -2);
+        assertEq(postSwapBid.sqrtPriceX96(), 79220241282338516565272588730);
+        assertEq(postSwapOffer.sqrtPriceX96(), SQRT_PRICE_1_1);
+        assertGt(userBalance1, 0.99e17);
+    }
+
+    function testSwapZeroForOneExactOutput() public {
+        // positions were created in setup()
+
+        // Perform a test swap //
+        (Slot0 bid, Slot0 offer) = hook.getSrPoolSlot0(key);
+
+        // starting price
+        assertEq(bid.sqrtPriceX96(), SQRT_PRICE_1_1);
+        assertEq(offer.sqrtPriceX96(), SQRT_PRICE_1_1);
+
+        uint256 userAmount = 1.01 ether;
+        fundCurrencyAndApproveRouter(user, currency0, userAmount);
+
+        vm.startPrank(user);
+
+        bool zeroForOne = true;
+
+        // negative number indicates exact input swap!
+        int256 amountSpecified = int256(1 ether);
+
+        BalanceDelta swapDelta = swap(
+            key,
+            zeroForOne,
+            amountSpecified,
+            ZERO_BYTES
+        );
+        vm.stopPrank();
+        // ------------------- //
+
+        (Slot0 postSwapBid, Slot0 postSwapOffer) = hook.getSrPoolSlot0(key);
+        console.log(postSwapBid.sqrtPriceX96());
+        // balance of token1
+        uint256 userBalance1 = MockERC20(Currency.unwrap(currency1)).balanceOf(
+            address(user)
+        );
+
+        // zeroForOne order is executed on the bid side
+        // offerSide should remain constant
+
+        assertEq(int256(swapDelta.amount1()), amountSpecified);
+        assertEq(postSwapBid.tick(), -3);
+        assertEq(postSwapBid.sqrtPriceX96(), 79220239698012911159784595940);
+        assertEq(postSwapOffer.sqrtPriceX96(), SQRT_PRICE_1_1);
+        assertGt(userBalance1, 0.99e17);
+    }
+
+    function testSwapOneForZeroExactInput() public {
         // positions were created in setup()
 
         // Perform a test swap //
@@ -159,12 +252,53 @@ contract SrAmmHookV2Test is Test, Deployers {
         vm.stopPrank();
         // ------------------- //
 
+        uint256 userBalance0 = MockERC20(Currency.unwrap(currency0)).balanceOf(
+            address(user)
+        );
+
+        (Slot0 postSwapBid, Slot0 postSwapOffer) = hook.getSrPoolSlot0(key);
+
         assertEq(int256(swapDelta.amount1()), amountSpecified);
+        assertEq(postSwapOffer.tick(), 1);
+        assertEq(postSwapOffer.sqrtPriceX96(), 79236084538234138884659928795);
+        assertEq(postSwapBid.sqrtPriceX96(), SQRT_PRICE_1_1);
+        assertGt(userBalance0, 0.99e17);
+    }
+
+    function testSwapOneForZeroExactOutput() public {
+        // positions were created in setup()
+
+        // Perform a test swap //
+
+        uint256 userAmount = 1.01 ether;
+        fundCurrencyAndApproveRouter(user, currency1, userAmount);
+
+        vm.startPrank(user);
+
+        bool zeroForOne = false;
+
+        // negative number indicates exact input swap!
+        int256 amountSpecified = int256(1 ether);
+
+        BalanceDelta swapDelta = swap(
+            key,
+            zeroForOne,
+            amountSpecified,
+            ZERO_BYTES
+        );
+        vm.stopPrank();
+        // ------------------- //
 
         uint256 userBalance0 = MockERC20(Currency.unwrap(currency0)).balanceOf(
             address(user)
         );
 
+        (Slot0 postSwapBid, Slot0 postSwapOffer) = hook.getSrPoolSlot0(key);
+
+        assertEq(int256(swapDelta.amount0()), amountSpecified);
+        assertEq(postSwapOffer.tick(), 2);
+        assertEq(postSwapOffer.sqrtPriceX96(), 79236086122876625256069557292);
+        assertEq(postSwapBid.sqrtPriceX96(), SQRT_PRICE_1_1);
         assertGt(userBalance0, 0.99e17);
     }
 

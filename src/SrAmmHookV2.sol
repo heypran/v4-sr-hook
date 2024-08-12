@@ -138,10 +138,16 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
         // address swapper = abi.decode(hookData, (address));
         //        settleOutputTokenPostSwap(key, params, delta, swapper);
 
-        int128 unspecifiedAmount = (params.zeroForOne == exactInput)
-            ? delta.amount1()
-            : delta.amount0();
+        int128 unspecifiedAmount;
+
+        if (params.zeroForOne) {
+            unspecifiedAmount = exactInput ? delta.amount1() : -delta.amount0();
+        } else {
+            unspecifiedAmount = exactInput ? delta.amount0() : -delta.amount1();
+        }
+
         BeforeSwapDelta returnDelta;
+
         if (exactInput) {
             // in exact-input swaps, the specified token is a debt that gets paid down by the swapper
             // the unspecified token is credited to the PoolManager, that is claimed by the swapper
@@ -161,6 +167,7 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
             // exactOutput
             // in exact-output swaps, the unspecified token is a debt that gets paid down by the swapper
             // the specified token is credited to the PoolManager, that is claimed by the swapper
+
             unspecified.take(
                 poolManager,
                 address(this),
