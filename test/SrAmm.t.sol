@@ -29,6 +29,8 @@ contract SrAmmHookV2Test is Test, Deployers {
     address attacker;
     address user;
 
+    int24 tickSpacing = 1;
+
     function setUp() public {
         // creates the pool manager, utility routers, and test tokens
         Deployers.deployFreshManagerAndRouters();
@@ -50,7 +52,7 @@ contract SrAmmHookV2Test is Test, Deployers {
         hook = SrAmmHookV2(flags);
 
         // Create the pool
-        key = PoolKey(currency0, currency1, 3000, 60, IHooks(hook));
+        key = PoolKey(currency0, currency1, 100, tickSpacing, IHooks(hook));
         poolId = key.toId();
         manager.initialize(key, SQRT_PRICE_1_1, ZERO_BYTES);
 
@@ -58,18 +60,27 @@ contract SrAmmHookV2Test is Test, Deployers {
         // modifyLiquidityRouter.modifyLiquidity(
         //     key,
         //     IPoolManager.ModifyLiquidityParams(
-        //         TickMath.minUsableTick(60),
-        //         TickMath.maxUsableTick(60),
+        //         -2,
+        //         2,
         //         10_000 ether, // 10000000000000000000000
         //         0
         //     ),
         //     ZERO_BYTES
         // );
-        addLiquidityViaHook();
+
+        addLiquidityViaHook(
+            1_000 ether,
+            TickMath.minUsableTick(tickSpacing),
+            TickMath.maxUsableTick(tickSpacing)
+        );
         fundAttackerUsers();
     }
 
-    function addLiquidityViaHook() internal {
+    function addLiquidityViaHook(
+        int256 liquidityDelta,
+        int24 minTick,
+        int24 maxTick
+    ) internal {
         MockERC20(Currency.unwrap(currency0)).approve(
             address(hook),
             10000 ether
@@ -82,9 +93,9 @@ contract SrAmmHookV2Test is Test, Deployers {
         hook.addLiquidity(
             key,
             IPoolManager.ModifyLiquidityParams(
-                TickMath.minUsableTick(60),
-                TickMath.maxUsableTick(60),
-                10_000 ether, // 10000000000000000000000
+                minTick,
+                maxTick,
+                liquidityDelta,
                 0
             ),
             ZERO_BYTES
@@ -156,6 +167,47 @@ contract SrAmmHookV2Test is Test, Deployers {
 
         assertGt(userBalance0, 0.99e17);
     }
+
+    // function testSwap1TokenOnSrPoolWithVaryingLiquidity() public {
+    //     // positions were created in setup()
+    //     addLiquidityViaHook(1 ether, -2, 2);
+    //     addLiquidityViaHook(1 ether, 4, 6);
+
+    //     //.....-2 .... -1....0 ...1 .....2
+
+    //     // addLiquidityViaHook(1 ether, -2, 2);
+    //     // Perform a test swap //
+    //     displayPoolLiq(key);
+    //     uint256 userAmount = 0.75 ether;
+    //     fundCurrencyAndApproveRouter(user, currency1, userAmount);
+
+    //     vm.startPrank(user);
+
+    //     bool zeroForOne = false;
+
+    //     // negative number indicates exact input swap!
+    //     int256 amountSpecified = -int256(userAmount);
+
+    //     BalanceDelta swapDelta = swap(
+    //         key,
+    //         zeroForOne,
+    //         amountSpecified,
+    //         ZERO_BYTES
+    //     );
+    //     vm.stopPrank();
+    //     // ------------------- //
+
+    //     assertEq(int256(swapDelta.amount1()), amountSpecified);
+
+    //     uint256 userBalance0 = MockERC20(Currency.unwrap(currency0)).balanceOf(
+    //         address(user)
+    //     );
+    //     (Slot0 bid, Slot0 offer) = hook.getSrPoolSlot0(key);
+
+    //     displayPoolLiq(key);
+
+    //     assertGt(userBalance0, 0.99e17);
+    // }
 
     function testSrSwapOnSr001Pool() public {
         // positions were created in setup()
@@ -252,6 +304,24 @@ contract SrAmmHookV2Test is Test, Deployers {
         console.log(diff);
     }
 
+    function displayPoolLiq(PoolKey memory key) internal {
+        (uint128 bidLiq, uint128 offerLiq, uint128 vBLiq, uint128 vOLiq) = hook
+            .getSrPoolLiquidity(key);
+        console.log("Liquidity------");
+        console.log(bidLiq);
+        console.log(offerLiq);
+        console.log(vBLiq);
+        console.log(vOLiq);
+
+        (Slot0 bid, Slot0 offer) = hook.getSrPoolSlot0(key);
+        console.log("Pool SQRT ----");
+        console.log(bid.sqrtPriceX96());
+        console.log(offer.sqrtPriceX96());
+        console.log("Pool Tick ----");
+        console.logInt(bid.tick());
+        console.logInt(offer.tick());
+    }
+
     // buy 1 buy 1 sell 0
     function testSrSwapOnSr110Pool() public {
         // positions were created in setup()
@@ -260,6 +330,8 @@ contract SrAmmHookV2Test is Test, Deployers {
         console.log("Before Swap SQRT in Test.sol");
         console.log(bid.sqrtPriceX96());
         console.log(offer.sqrtPriceX96());
+
+        displayPoolLiq(key);
 
         // trasfer token1 to attacker and user
 
@@ -293,6 +365,8 @@ contract SrAmmHookV2Test is Test, Deployers {
             console.log("User.......");
             vm.startPrank(user);
 
+            displayPoolLiq(key);
+
             int256 userBuyAmount = -int256(token0UserBeforeAmount); // negative number indicates exact input swap!
             BalanceDelta swapDelta2 = swap(
                 key,
@@ -305,6 +379,101 @@ contract SrAmmHookV2Test is Test, Deployers {
             // --- attacker --- //
             vm.startPrank(attacker);
             console.log("Attacker........");
+
+            displayPoolLiq(key);
+
+            // approve router to spend, as it needs to settle
+            MockERC20(Currency.unwrap(currency1)).approve(
+                address(swapRouter),
+                10 ether
+            );
+
+            // negative number indicates exact input swap!
+            int256 attackerSellAmount = -int256(
+                MockERC20(Currency.unwrap(currency1)).balanceOf(
+                    address(attacker)
+                )
+            );
+
+            BalanceDelta swapDelta3 = swap(
+                key,
+                false, //zerForOne false (buying at offerPrice, left to right)
+                attackerSellAmount,
+                ZERO_BYTES
+            );
+            vm.stopPrank();
+        }
+        // ------------------- //
+
+        console.log("After Swap SQRT in Test.sol");
+        (Slot0 bid2, Slot0 offer2) = hook.getSrPoolSlot0(key);
+        console.log(bid2.sqrtPriceX96());
+        console.log(offer2.sqrtPriceX96());
+
+        uint256 attackerBalance = MockERC20(Currency.unwrap(currency0))
+            .balanceOf(address(attacker));
+
+        assertGt(token0AttackerBeforeAmount, attackerBalance);
+        console.log("Diff");
+        uint256 diff = token0AttackerBeforeAmount - attackerBalance;
+        console.log(diff);
+    }
+
+    //
+    //
+    function testSrSwapOnSrPoolVaryingLiquidity() public {
+        // positions were created in setup()
+
+        displayPoolLiq(key);
+
+        // trasfer token1 to attacker and user
+
+        uint256 token0AttackerBeforeAmount = 10 ether;
+        fundCurrencyAndApproveRouter(
+            attacker,
+            currency0,
+            token0AttackerBeforeAmount
+        );
+
+        uint256 token0UserBeforeAmount = 100 ether;
+        fundCurrencyAndApproveRouter(user, currency0, token0UserBeforeAmount);
+
+        // Perform a test sandwich attack //
+        {
+            // ----attacker--- //
+            console.log("attacker.......");
+            vm.startPrank(attacker);
+
+            //hookdata = abi.encode(attacker);
+            int256 attackerBuy0Amount = -int256(token0AttackerBeforeAmount); // negative number indicates exact input swap!
+            BalanceDelta swapDelta = swap(
+                key,
+                true, //zerForOne true (selling at bidPrice, right to left)
+                attackerBuy0Amount,
+                ZERO_BYTES
+            );
+            vm.stopPrank();
+
+            // ----user--- //
+            console.log("User.......");
+            vm.startPrank(user);
+
+            displayPoolLiq(key);
+
+            int256 userBuyAmount = -int256(token0UserBeforeAmount); // negative number indicates exact input swap!
+            BalanceDelta swapDelta2 = swap(
+                key,
+                true, //zerForOne true (selling at bidPrice, right to left)
+                userBuyAmount,
+                ZERO_BYTES
+            );
+            vm.stopPrank();
+
+            // --- attacker --- //
+            vm.startPrank(attacker);
+            console.log("Attacker........");
+
+            displayPoolLiq(key);
 
             // approve router to spend, as it needs to settle
             MockERC20(Currency.unwrap(currency1)).approve(
@@ -354,10 +523,17 @@ contract SrAmmHookV2Test is Test, Deployers {
     // Check if liquidity is handled correctly for zeroForOne
 }
 
-// Normal Swap in PM: X1 -> Y1
-// Custom Swap: X1 -> Y1Less
-
-// Hooks settle Y1Less => PM
-// PM settles penging        X1 -> (Y1 - Y1Less)
-
 // Liquidity Scenario
+
+// ----------------------- //
+
+// 2. Pool range: 60 to 180 liqudity range  (10,000)
+//Liquidity -> It is too high withing the specifica range (maybe between two ticks its around 10_000 ether liquidity units) (60 - 120)
+// Swaps: multiple buy swaps dosent lead to any changes in the ticks and sell by the attacker
+// The output should remian same or the new Amm can cost more due to gas cost
+
+//3.
+//Liquidity: -> Current both bid and offer price are in active range of liquidity pool
+//Swaps: -> What happens if after the multiple
+
+// --------------------------- ///

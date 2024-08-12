@@ -41,7 +41,10 @@ library SrPool {
         Slot0 offer; // swapping token1 for token0 // oneForZero
         Slot0 bid;
         uint128 liquidity;
+        uint128 bidLiquidity;
         uint128 virtualBidliquidity;
+        uint128 virtualOfferliquidity;
+        uint160 slotStartSqrtPriceX96;
         mapping(int24 => TickInfo) ticks;
         mapping(int16 => uint256) tickBitmap;
         mapping(bytes32 => Position.Info) positions;
@@ -141,6 +144,9 @@ library SrPool {
         // set same price for both initially
         bidTick = TickMath.getTickAtSqrtPrice(sqrtPriceX96);
         offerTick = TickMath.getTickAtSqrtPrice(sqrtPriceX96);
+
+        // should be reset at every slot change
+        self.slotStartSqrtPriceX96 = sqrtPriceX96;
 
         // TODO remove fees and optmize
         // refactor the Slot0 being used for both
@@ -316,6 +322,8 @@ library SrPool {
                     self.liquidity,
                     liquidityDelta
                 );
+                // Only allow modification before at start of new slot
+                self.bidLiquidity = self.liquidity;
             } else {
                 // current tick is above the passed range; liquidity can only become in range by crossing from right to
                 // left, when we'll need _more_ currency1 (it's becoming more valuable) so user must provide it
@@ -343,6 +351,8 @@ library SrPool {
         uint160 sqrtPriceX96;
         // virtual bid sqrt(price)
         uint160 sqrtBidPriceX96;
+        // slotStart price
+        uint160 slotStartSqrtPriceX96;
         // the tick associated with the current price
         int24 tick;
         // the tick associated with the virtual bid price
@@ -351,8 +361,12 @@ library SrPool {
         uint256 feeGrowthGlobalX128;
         // the current liquidity in range
         uint128 liquidity;
-        // the current virtual liquidity at bid price
+        // the current liquidity at bid price
+        uint128 bidliquidity;
+        // the current virtual liquidity at bid price current slot
         uint128 virtualBidliquidity;
+        // the current virtual liquidity at offer price current slot
+        uint128 virtualOfferliquidity;
     }
 
     struct StepComputations {
@@ -397,14 +411,15 @@ library SrPool {
         Slot0 offerSlotStart = self.offer;
         Slot0 bidSlotStart = self.bid;
 
-        console.log("zeroForOne");
-        console.log(params.zeroForOne);
-        console.log(offerSlotStart.sqrtPriceX96());
-        console.log(bidSlotStart.sqrtPriceX96());
+        // console.log("zeroForOne");
+        // console.log(params.zeroForOne);
+        // console.log(offerSlotStart.sqrtPriceX96());
+        // console.log(bidSlotStart.sqrtPriceX96());
 
         // if we are swapping zeroForOne token0 for token1
         // ticks moves right to left, considered as a sell trade at bidPrice
         bool zeroForOne = params.zeroForOne;
+        srSwapState.slotStartSqrtPriceX96 = self.slotStartSqrtPriceX96;
 
         uint128 liquidityStart = self.liquidity;
         // retrive last value of virtual liquidity
@@ -412,15 +427,26 @@ library SrPool {
         // this includes the actual liquidity at the bid tick
         // if virtual bid liqudity is zero, that means its not initialized before
         // initially it will be same as offerTick
-        uint128 virutalBidLiquidityStart = self.virtualBidliquidity == 0
-            ? self.liquidity // + self.virtualBidliquidity
-            : self.virtualBidliquidity;
+        uint128 bidLiquidityStart = self.bidLiquidity;
+        // uint128 virtualBidLiquidityStart = self.virtualBidliquidity;
+        // uint128 virtualOfferLiquidityStart = self.virtualOfferliquidity;
+        //
+        // if (self.virtualBidliquidity == 0) {
+        //     self.virtualBidliquidity = liquidityStart;
+        //     virutalBidLiquidityStart = liquidityStart;
+        // } else {
+        //     virutalBidLiquidityStart = self.virtualBidliquidity;
+        // }
+
+        //  virutalBidLiquidityStart = self.virtualBidliquidity == 0
+        //     ? self.liquidity // + self.virtualBidliquidity
+        //     : self.virtualBidliquidity;
 
         console.log("virtualLiquidty");
-        console.log(virutalBidLiquidityStart);
-        console.log("Ticks");
-        console.logInt(offerSlotStart.tick());
-        console.logInt(bidSlotStart.tick());
+        console.log(bidLiquidityStart);
+        // console.log("Ticks");
+        // console.logInt(offerSlotStart.tick());
+        // console.logInt(bidSlotStart.tick());
 
         // ignoring the fees for now
         // uint256 protocolFee = zeroForOne
@@ -443,9 +469,10 @@ library SrPool {
         //     : self.feeGrowthGlobal1X128;
 
         srSwapState.liquidity = liquidityStart;
-        // we might need to maintain virtual liquidity per state/ or tick as well
-        // depends on the price movement
-        srSwapState.virtualBidliquidity = virutalBidLiquidityStart;
+        srSwapState.bidliquidity = bidLiquidityStart;
+        // we need to maintain virtual liqudity as well
+        srSwapState.virtualOfferliquidity = self.virtualOfferliquidity;
+        srSwapState.virtualBidliquidity = self.virtualBidliquidity;
 
         // if the beforeSwap hook returned a valid fee override, use that as the LP fee, otherwise load from storage
         {
@@ -499,40 +526,48 @@ library SrPool {
 
         // continue swapping as long as we haven't used the entire input/output and haven't reached the price limit
         SrSwapState memory newSrSwapState;
-        if (zeroForOne) {
-            newSrSwapState = computeSwapStepForOneSide(
-                self,
-                params,
-                srSwapState,
-                true // update bidSide
-            );
-            console.log("amountSpecified Post BidSide");
-            console.logInt(srSwapState.amountCalculated.toInt128());
-            console.logInt(srSwapState.amountSpecifiedRemaining);
 
+        newSrSwapState = computeSwapStepForOneSide(
+            self,
+            params,
+            srSwapState,
+            zeroForOne // update bidSide /offer side
+        );
+        // console.log("amountSpecified Post BidSide");
+        // console.logInt(srSwapState.amountCalculated.toInt128());
+        // console.logInt(srSwapState.amountSpecifiedRemaining);
+
+        // moving right to left and offer side is greater than slot start
+        // update offerside
+        if (
+            zeroForOne &&
+            srSwapState.slotStartSqrtPriceX96 < srSwapState.sqrtBidPriceX96
+        ) {
             newSrSwapState = computeSwapStepForOneSide(
                 self,
                 params,
                 srSwapState,
-                false // update offerSide
-            );
-            console.log("amountSpecified Post SellSide");
-            console.logInt(srSwapState.amountCalculated.toInt128());
-            console.logInt(srSwapState.amountSpecifiedRemaining);
-        } else {
-            newSrSwapState = computeSwapStepForOneSide(
-                self,
-                params,
-                srSwapState,
-                false // update offerSide with virtual liquidity for bidSide
-            );
-            newSrSwapState = computeSwapStepForOneSide(
-                self,
-                params,
-                srSwapState,
-                true // update offerSide with virtual liquidity for bidSide
+                false
             );
         }
+
+        // moving left to rigth and bid side is greater less than slot start
+        // update bidside
+        if (
+            zeroForOne &&
+            srSwapState.slotStartSqrtPriceX96 < srSwapState.sqrtBidPriceX96
+        ) {
+            newSrSwapState = computeSwapStepForOneSide(
+                self,
+                params,
+                srSwapState,
+                true
+            );
+        }
+
+        // console.log("amountSpecified Post SellSide");
+        // console.logInt(srSwapState.amountCalculated.toInt128());
+        // console.logInt(srSwapState.amountSpecifiedRemaining);
 
         srSwapState = newSrSwapState;
 
@@ -544,18 +579,25 @@ library SrPool {
             srSwapState.sqrtBidPriceX96
         );
 
-        console.log("Ticks post swap");
-        console.logInt(self.offer.tick());
-        console.logInt(self.bid.tick());
+        // console.log("Ticks post swap");
+        // console.logInt(self.offer.tick());
+        // console.logInt(self.bid.tick());
 
-        // update liquidity if it changed
-        if (liquidityStart != srSwapState.liquidity)
-            self.liquidity = srSwapState.liquidity;
+        {
+            // update liquidity if it changed
+            if (liquidityStart != srSwapState.liquidity)
+                self.liquidity = srSwapState.liquidity;
 
-        // update new virtual liquidity in the state/storage
-        if (virutalBidLiquidityStart != srSwapState.virtualBidliquidity)
-            self.virtualBidliquidity = srSwapState.virtualBidliquidity;
+            if (self.virtualOfferliquidity != srSwapState.virtualOfferliquidity)
+                self.virtualOfferliquidity = srSwapState.virtualOfferliquidity;
 
+            // update new virtual liquidity in the state/storage
+            if (bidLiquidityStart != srSwapState.bidliquidity)
+                self.bidLiquidity = srSwapState.bidliquidity;
+
+            if (self.virtualBidliquidity != srSwapState.virtualBidliquidity)
+                self.virtualBidliquidity = srSwapState.virtualBidliquidity;
+        }
         // self.virtualBidliquidity = liquidityStart;
 
         // ignore fees feeGrowth for now
@@ -631,7 +673,7 @@ library SrPool {
             // compute values to swap to the target tick, price limit, or point where input/output amount is exhausted
 
             uint160 computedSqrtPriceX96;
-            // compute steps for bid Side
+            // compute steps
             (
                 computedSqrtPriceX96,
                 step.amountIn,
@@ -646,9 +688,13 @@ library SrPool {
                     step.sqrtPriceNextX96,
                     params.sqrtPriceLimitX96
                 ),
+                // problem with this approach is that when the price moves
+                // from left to right and goes beyond the first tick spacing window
+                // will appropriately adjust the liquidity?
+                // should we just maintain virtual separately without liquidity?
                 isBidSide
-                    ? srSwapState.virtualBidliquidity
-                    : srSwapState.liquidity, // includes virtual and real liquidity
+                    ? srSwapState.virtualBidliquidity + srSwapState.bidliquidity
+                    : srSwapState.liquidity + srSwapState.virtualOfferliquidity, // includes virtual and real liquidity
                 srSwapState.amountSpecifiedRemaining,
                 swapFee
             );
@@ -720,31 +766,58 @@ library SrPool {
 
                     if (isBidSide) {
                         // verify the math here
-                        srSwapState.virtualBidliquidity = LiquidityMath
-                            .addDelta(
-                                srSwapState.virtualBidliquidity, // ???
-                                liquidityNet
-                            );
+
+                        srSwapState.bidliquidity = LiquidityMath.addDelta(
+                            srSwapState.bidliquidity, // yeah this create a problem as price moves from right to left
+                            // it will try to derive net liquidity from virtual liquidty which is wrong as will be then counted twice
+                            liquidityNet
+                        );
+
+                        // since the tick is shifted make virtual liquidity 0
+                        // better to save virtual liquidity at tick info?
+                        srSwapState.virtualBidliquidity = 0;
+
+                        // increase liquidity on offer side if price at the start point
+                        if (
+                            srSwapState.slotStartSqrtPriceX96 ==
+                            srSwapState.sqrtPriceX96
+                        ) {
+                            srSwapState.virtualOfferliquidity += srSwapState
+                                .bidliquidity;
+                        }
                     } else {
                         srSwapState.liquidity = LiquidityMath.addDelta(
                             srSwapState.liquidity,
                             liquidityNet
                         );
+
+                        // since the tick is shifted make virtual liquidity 0
+                        // better to save virtual liquidity at tick info?
+                        srSwapState.virtualOfferliquidity = 0;
+
+                        // increase liquidity on bid side only if price is at slot start price
+                        if (
+                            srSwapState.slotStartSqrtPriceX96 ==
+                            srSwapState.sqrtBidPriceX96
+                        ) {
+                            srSwapState.virtualBidliquidity += srSwapState
+                                .liquidity;
+                        }
                     }
 
-                    // in case its not zeroForOne means buy order and its executed at offerSide
-                    // tick move left to right
-                    // we want to update the virtual liquidity
-                    if (!zeroForOne && !isBidSide) {
-                        // verify math here
-                        // there is an assumption here that all the vritual liquidity will built on top of
-                        // last bid Tick
-                        srSwapState.virtualBidliquidity = LiquidityMath
-                            .addDelta(
-                                srSwapState.virtualBidliquidity,
-                                -liquidityNet // TODO verify this sign
-                            );
-                    }
+                    // // in case its not zeroForOne means buy order and its executed at offerSide
+                    // // tick move left to right
+                    // // we want to update the virtual liquidity
+                    // if (!zeroForOne && !isBidSide) {
+                    //     // verify math here
+                    //     // there is an assumption here that all the vritual liquidity will built on top of
+                    //     // last bid Tick
+                    //     srSwapState.virtualBidliquidity = LiquidityMath
+                    //         .addDelta(
+                    //             srSwapState.virtualBidliquidity,
+                    //             -liquidityNet // TODO verify this sign
+                    //         );
+                    // }
                 }
 
                 // Equivalent to `state.tick = zeroForOne ? step.tickNext - 1 : step.tickNext;`

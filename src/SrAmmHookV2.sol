@@ -270,12 +270,27 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
         return (BaseHook.afterSwap.selector, 0);
     }
 
+    // only testing
     function getSrPoolSlot0(
         PoolKey memory key
     ) public view returns (Slot0 bid, Slot0 offer) {
         SrPool.SrPoolState storage srPoolState = _srPools[key.toId()];
 
         return (srPoolState.bid, srPoolState.offer);
+    }
+
+    // only testing
+    function getSrPoolLiquidity(
+        PoolKey memory key
+    ) public view returns (uint128, uint128, uint128, uint128) {
+        SrPool.SrPoolState storage srPoolState = _srPools[key.toId()];
+
+        return (
+            srPoolState.bidLiquidity,
+            srPoolState.liquidity,
+            srPoolState.virtualBidliquidity,
+            srPoolState.virtualOfferliquidity
+        );
     }
 
     // Add liquidity through the hook
