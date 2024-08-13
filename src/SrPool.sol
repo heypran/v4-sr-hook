@@ -874,30 +874,6 @@ library SrPool {
                 );
 
                 // should we make bid virtual zero here?
-
-                // if (
-                //     srSwapState.slotStartSqrtPriceX96 ==
-                //     srSwapState.sqrtPriceX96
-                // ) {
-                //     // should we calculate liquidity by getting
-                //     // liquidity between two ticks instead adding range liquidity?
-                //     // also, when are we decreasing this liquidity?
-
-                //     // srSwapState.virtualOfferliquidity += srSwapState
-                //     //     .bidliquidity;
-
-                //     // in this case it will always be amount0?
-                //     // since we are moving from right to left
-                //     srSwapState.virtualOfferliquidity += uint128(
-                //         SqrtPriceMath
-                //             .getAmount0Delta(
-                //                 srSwapState.sqrtBidPriceX96,
-                //                 step.sqrtPriceStartX96,
-                //                 int128(srSwapState.bidliquidity)
-                //             )
-                //             .toInt128()
-                //     );
-                // }
             }
             // we also want to adjust sell price
             else if (
@@ -911,24 +887,6 @@ library SrPool {
                 );
 
                 // should we make offer virtual zero here?
-                // if (
-                //     srSwapState.slotStartSqrtPriceX96 ==
-                //     srSwapState.sqrtBidPriceX96
-                // ) {
-                //     //srSwapState.virtualBidliquidity += srSwapState.liquidity;
-
-                //     // in this case it will always be amount1?
-                //     // since we are moving from left to right
-                //     srSwapState.virtualBidliquidity += uint128(
-                //         SqrtPriceMath
-                //             .getAmount1Delta(
-                //                 step.sqrtPriceStartX96,
-                //                 srSwapState.sqrtPriceX96,
-                //                 int128(srSwapState.liquidity)
-                //             )
-                //             .toInt128()
-                //     );
-                // }
             }
         }
 
