@@ -228,8 +228,58 @@ contract SrAmmHookV2Test is Test, Deployers {
         // ------------------- //
     }
 
+    function AttackerSwapTransaction(uint256 amount, bool isZeroForOne) public {
+        if (isZeroForOne) {
+            fundCurrencyAndApproveRouter(attacker, currency0, amount);
+            vm.startPrank(attacker);
+            BalanceDelta swapDelta = swap(
+                key,
+                true, //zerForOne true (selling at bidPrice, right to left)
+                -int256(amount), // negative number indicates exact input swap!
+                ZERO_BYTES
+            );
+            vm.stopPrank();
+        } else {
+            fundCurrencyAndApproveRouter(attacker, currency1, amount);
+            vm.startPrank(attacker);
+            BalanceDelta swapDelta = swap(
+                key,
+                false, //oneForZero true (selling at offerPrice, left to right)
+                -int256(amount), // negative number indicates exact input swap!
+                ZERO_BYTES
+            );
+            vm.stopPrank();
+        }
+    }
+
+    function UserSwapTransaction(uint256 amount, bool isZeroForOne) public {
+        if (isZeroForOne) {
+            fundCurrencyAndApproveRouter(user, currency0, amount);
+            vm.startPrank(user);
+            BalanceDelta swapDelta = swap(
+                key,
+                true, //zerForOne true (selling at bidPrice, right to left)
+                -int256(amount), // negative number indicates exact input swap!
+                ZERO_BYTES
+            );
+            vm.stopPrank();
+        } else {
+            fundCurrencyAndApproveRouter(user, currency1, amount);
+            vm.startPrank(user);
+            BalanceDelta swapDelta = swap(
+                key,
+                false, //oneForZero true (selling at offerPrice, left to right)
+                -int256(amount), // negative number indicates exact input swap!
+                ZERO_BYTES
+            );
+            vm.stopPrank();
+        }
+    }
+
     function SandwichAttackOneToZeroSwap() public {
         // trasfer token10 to attacker and user
+
+        console.log("<---------Swap Atttack from one To zero----------->");
 
         uint256 token1AttackerBeforeAmount = 10 ether;
         fundCurrencyAndApproveRouter(
@@ -302,6 +352,20 @@ contract SrAmmHookV2Test is Test, Deployers {
         // ------------------- //
     }
 
+    function PrintingLiquidityPoolData() public {
+        (
+            uint128 bidLiquidity,
+            uint128 liquidity,
+            uint128 virtualBidLiquidity,
+            uint128 virtualOfferliquidity
+        ) = hook.getSrPoolLiquidity(key);
+        console.log("Liquidity Infor");
+        console.logUint(bidLiquidity);
+        console.logUint(liquidity);
+        console.logUint(virtualBidLiquidity);
+        console.logUint(virtualOfferliquidity);
+    }
+
     //ZEROFORONE CASES
     // 1. Testing liquidity changes for simple attack swap from zero for one. This invloves active liquidity remains unchanged
     function testSrSwapOnSrPoolActiveLiquidityRangeNoChangesZF1() public {
@@ -350,7 +414,7 @@ contract SrAmmHookV2Test is Test, Deployers {
 
         addLiquidityViaHook(1000 ether, -6000, -1800);
 
-        displayPoolLiq(key);
+        // displayPoolLiq(key);
 
         SandwichAttackZeroToOneSwap();
 
@@ -377,6 +441,10 @@ contract SrAmmHookV2Test is Test, Deployers {
         assertEq(liquidity, 1000 ether);
         assertEq(virtualBidLiquidity, 0 ether);
         assertEq(virtualOfferliquidity, 1000 ether);
+
+        AttackerSwapTransaction(100 ether, false);
+        // assertEq(virtualOfferliquidity, 0); // this should have been zero
+        displayPoolLiq(key);
     }
 
     // 3. Testing in Overlapped liquidities
