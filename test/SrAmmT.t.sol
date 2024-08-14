@@ -136,7 +136,6 @@ contract SrAmmHookV2Test is Test, Deployers {
         assertEq(offer.sqrtPriceX96(), SQRT_PRICE_1_1);
     }
 
-
     function displayPoolLiq(PoolKey memory key) internal {
         (uint128 bidLiq, uint128 offerLiq, uint128 vBLiq, uint128 vOLiq) = hook
             .getSrPoolLiquidity(key);
@@ -155,9 +154,8 @@ contract SrAmmHookV2Test is Test, Deployers {
         console.logInt(offer.tick());
     }
 
-
-function SandwichAttackZeroToOneSwap() public {
- // trasfer token1 to attacker and user
+    function SandwichAttackZeroToOneSwap() public {
+        // trasfer token1 to attacker and user
 
         uint256 token0AttackerBeforeAmount = 10 ether;
         fundCurrencyAndApproveRouter(
@@ -226,15 +224,12 @@ function SandwichAttackZeroToOneSwap() public {
                 ZERO_BYTES
             );
             vm.stopPrank();
-
-            
         }
         // ------------------- //
-}
+    }
 
-
-function SandwichAttackOneToZeroSwap() public {
- // trasfer token10 to attacker and user
+    function SandwichAttackOneToZeroSwap() public {
+        // trasfer token10 to attacker and user
 
         uint256 token1AttackerBeforeAmount = 10 ether;
         fundCurrencyAndApproveRouter(
@@ -305,28 +300,22 @@ function SandwichAttackOneToZeroSwap() public {
             vm.stopPrank();
         }
         // ------------------- //
-}
+    }
 
-//ZEROFORONE CASES
- // 1. Testing liquidity changes for simple attack swap from zero for one. This invloves active liquidity remains unchanged
- function testSrSwapOnSrPoolActiveLiquidityRangeNoChangesZF1() public {
+    //ZEROFORONE CASES
+    // 1. Testing liquidity changes for simple attack swap from zero for one. This invloves active liquidity remains unchanged
+    function testSrSwapOnSrPoolActiveLiquidityRangeNoChangesZF1() public {
         // positions were created in setup()
 
-         addLiquidityViaHook(
-            1000 ether,
-            -3000,
-            3000
-            );
+        addLiquidityViaHook(1000 ether, -3000, 3000);
 
-            addLiquidityViaHook(
-            1000 ether,
-          -6000,
-           -3000
-        );
+        addLiquidityViaHook(1000 ether, -6000, -3000);
+
+        console.log("Liquidity Before Attack");
 
         displayPoolLiq(key);
 
-       SandwichAttackZeroToOneSwap();
+        SandwichAttackZeroToOneSwap();
 
         console.log("After Swap SQRT Prices and ticks");
         (Slot0 bid2, Slot0 offer2) = hook.getSrPoolSlot0(key);
@@ -335,7 +324,12 @@ function SandwichAttackOneToZeroSwap() public {
         console.logInt(bid2.tick());
         console.logInt(offer2.tick());
 
-        (uint128 bidLiquidity, uint128 liquidity, uint128 virtualBidLiquidity, uint128  virtualOfferliquidity) = hook.getSrPoolLiquidity(key);
+        (
+            uint128 bidLiquidity,
+            uint128 liquidity,
+            uint128 virtualBidLiquidity,
+            uint128 virtualOfferliquidity
+        ) = hook.getSrPoolLiquidity(key);
         console.log("Liquidity data");
         console.logUint(bidLiquidity);
         console.logUint(liquidity);
@@ -347,25 +341,18 @@ function SandwichAttackOneToZeroSwap() public {
         assertEq(virtualBidLiquidity, 0 ether);
         assertEq(virtualOfferliquidity, 0 ether);
     }
-//2. Testing liquidity changes for simple attack swap from zero for one. This invloves active liquidity changes
- function testSrSwapOnSrPoolActiveLiquidityRangeChangesZF1() public {
+
+    //2. Testing liquidity changes for simple attack swap from zero for one. This invloves active liquidity changes
+    function testSrSwapOnSrPoolActiveLiquidityRangeChangesZF1() public {
         // positions were created in setup()
 
-         addLiquidityViaHook(
-            1000 ether,
-            -1800,
-            1800
-            );
+        addLiquidityViaHook(1000 ether, -1800, 1800);
 
-            addLiquidityViaHook(
-            1000 ether,
-          -6000,
-           -1800
-        );
+        addLiquidityViaHook(1000 ether, -6000, -1800);
 
         displayPoolLiq(key);
 
-       SandwichAttackZeroToOneSwap();
+        SandwichAttackZeroToOneSwap();
 
         console.log("After Swap SQRT Prices and ticks");
         (Slot0 bid2, Slot0 offer2) = hook.getSrPoolSlot0(key);
@@ -374,7 +361,12 @@ function SandwichAttackOneToZeroSwap() public {
         console.logInt(bid2.tick());
         console.logInt(offer2.tick());
 
-        (uint128 bidLiquidity, uint128 liquidity, uint128 virtualBidLiquidity, uint128  virtualOfferliquidity) = hook.getSrPoolLiquidity(key);
+        (
+            uint128 bidLiquidity,
+            uint128 liquidity,
+            uint128 virtualBidLiquidity,
+            uint128 virtualOfferliquidity
+        ) = hook.getSrPoolLiquidity(key);
         console.log("Liquidity data");
         console.logUint(bidLiquidity);
         console.logUint(liquidity);
@@ -387,45 +379,29 @@ function SandwichAttackOneToZeroSwap() public {
         assertEq(virtualOfferliquidity, 1000 ether);
     }
 
-// 3. Testing in Overlapped liquidities
-// To check whether the active liqudity range amount changes based on the tick movement when it moves out of some liquidity ranges.
+    // 3. Testing in Overlapped liquidities
+    // To check whether the active liqudity range amount changes based on the tick movement when it moves out of some liquidity ranges.
 
-function testSrSwapOnSrPoolMultipleOverlappedLiquidityZF1() public {
+    function testSrSwapOnSrPoolMultipleOverlappedLiquidityZF1() public {
         // positions were created in setup()
 
-         addLiquidityViaHook(
-            10000 ether,
-            -3000,
-            3000
-        );
-        addLiquidityViaHook(
-            1000 ether,
-            -60,
-            60
-        );
+        addLiquidityViaHook(10000 ether, -3000, 3000);
+        addLiquidityViaHook(1000 ether, -60, 60);
 
-        addLiquidityViaHook(
-            1000 ether,
-           2000,
-           6000
-        );
+        addLiquidityViaHook(1000 ether, 2000, 6000);
 
-        addLiquidityViaHook(
-            1000 ether,
-            -24000,
-            -12000
-        );
+        addLiquidityViaHook(1000 ether, -24000, -12000);
 
-        addLiquidityViaHook(
-            1000 ether,
-            -120,
-            120
-        );
+        addLiquidityViaHook(1000 ether, -120, 120);
 
         displayPoolLiq(key);
 
-
-       (uint128 bidLiquidityBefore, uint128 liquidityBefore, uint128 virtualBidLiquidityBefore, uint128  virtualOfferliquidityBefore) = hook.getSrPoolLiquidity(key);
+        (
+            uint128 bidLiquidityBefore,
+            uint128 liquidityBefore,
+            uint128 virtualBidLiquidityBefore,
+            uint128 virtualOfferliquidityBefore
+        ) = hook.getSrPoolLiquidity(key);
         console.log("Liquidity data Before");
 
         console.logUint(bidLiquidityBefore);
@@ -433,7 +409,7 @@ function testSrSwapOnSrPoolMultipleOverlappedLiquidityZF1() public {
         assertEq(bidLiquidityBefore, 12000 ether);
         assertEq(liquidityBefore, 12000 ether);
 
-       SandwichAttackZeroToOneSwap();
+        SandwichAttackZeroToOneSwap();
 
         console.log("After Swap SQRT Prices and ticks");
         (Slot0 bid2, Slot0 offer2) = hook.getSrPoolSlot0(key);
@@ -442,7 +418,12 @@ function testSrSwapOnSrPoolMultipleOverlappedLiquidityZF1() public {
         console.logInt(bid2.tick());
         console.logInt(offer2.tick());
 
-        (uint128 bidLiquidity, uint128 liquidity, uint128 virtualBidLiquidity, uint128  virtualOfferliquidity) = hook.getSrPoolLiquidity(key);
+        (
+            uint128 bidLiquidity,
+            uint128 liquidity,
+            uint128 virtualBidLiquidity,
+            uint128 virtualOfferliquidity
+        ) = hook.getSrPoolLiquidity(key);
         console.log("Liquidity data");
         console.logUint(bidLiquidity);
         console.logUint(liquidity);
@@ -453,28 +434,19 @@ function testSrSwapOnSrPoolMultipleOverlappedLiquidityZF1() public {
         assertEq(liquidity, 12000 ether);
         // assertEq(virtualOfferliquidity, 12000 ether); // 12000 or 2000 extra
     }
-    
-   
-   //ONEFORZERO CASES
-   // 1. Testing liquidity changes for simple attack swap from zero for one. This invloves active liquidity remains unchanged
-function testSrSwapOnSrPoolActiveLiquidityRangeNoChanges1FZ() public {
+
+    //ONEFORZERO CASES
+    // 1. Testing liquidity changes for simple attack swap from zero for one. This invloves active liquidity remains unchanged
+    function testSrSwapOnSrPoolActiveLiquidityRangeNoChanges1FZ() public {
         // positions were created in setup()
 
-         addLiquidityViaHook(
-            1000 ether,
-            -3000,
-            3000
-            );
+        addLiquidityViaHook(1000 ether, -3000, 3000);
 
-            addLiquidityViaHook(
-            1000 ether,
-            3000,
-            6000
-        );
+        addLiquidityViaHook(1000 ether, 3000, 6000);
 
         displayPoolLiq(key);
 
-       SandwichAttackOneToZeroSwap();
+        SandwichAttackOneToZeroSwap();
 
         console.log("After Swap SQRT Prices and ticks");
         (Slot0 bid2, Slot0 offer2) = hook.getSrPoolSlot0(key);
@@ -483,7 +455,12 @@ function testSrSwapOnSrPoolActiveLiquidityRangeNoChanges1FZ() public {
         console.logInt(bid2.tick());
         console.logInt(offer2.tick());
 
-        (uint128 bidLiquidity, uint128 liquidity, uint128 virtualBidLiquidity, uint128  virtualOfferliquidity) = hook.getSrPoolLiquidity(key);
+        (
+            uint128 bidLiquidity,
+            uint128 liquidity,
+            uint128 virtualBidLiquidity,
+            uint128 virtualOfferliquidity
+        ) = hook.getSrPoolLiquidity(key);
         console.log("Liquidity data");
         console.logUint(bidLiquidity);
         console.logUint(liquidity);
@@ -496,25 +473,17 @@ function testSrSwapOnSrPoolActiveLiquidityRangeNoChanges1FZ() public {
         assertEq(virtualOfferliquidity, 0 ether);
     }
 
-       // 2. Testing liquidity changes for simple attack swap from zero for one. This invloves active liquidity changes
-function testSrSwapOnSrPoolActiveLiquidityRangeChanges1FZ() public {
+    // 2. Testing liquidity changes for simple attack swap from zero for one. This invloves active liquidity changes
+    function testSrSwapOnSrPoolActiveLiquidityRangeChanges1FZ() public {
         // positions were created in setup()
 
-         addLiquidityViaHook(
-            1000 ether,
-            -1800,
-            1800
-            );
+        addLiquidityViaHook(1000 ether, -1800, 1800);
 
-            addLiquidityViaHook(
-            1000 ether,
-            1800,
-            6000
-        );
+        addLiquidityViaHook(1000 ether, 1800, 6000);
 
         displayPoolLiq(key);
 
-       SandwichAttackOneToZeroSwap();
+        SandwichAttackOneToZeroSwap();
 
         console.log("After Swap SQRT Prices and ticks");
         (Slot0 bid2, Slot0 offer2) = hook.getSrPoolSlot0(key);
@@ -523,7 +492,12 @@ function testSrSwapOnSrPoolActiveLiquidityRangeChanges1FZ() public {
         console.logInt(bid2.tick());
         console.logInt(offer2.tick());
 
-        (uint128 bidLiquidity, uint128 liquidity, uint128 virtualBidLiquidity, uint128  virtualOfferliquidity) = hook.getSrPoolLiquidity(key);
+        (
+            uint128 bidLiquidity,
+            uint128 liquidity,
+            uint128 virtualBidLiquidity,
+            uint128 virtualOfferliquidity
+        ) = hook.getSrPoolLiquidity(key);
         console.log("Liquidity data");
         console.logUint(bidLiquidity);
         console.logUint(liquidity);
@@ -536,46 +510,29 @@ function testSrSwapOnSrPoolActiveLiquidityRangeChanges1FZ() public {
         assertEq(virtualOfferliquidity, 0 ether);
     }
 
+    // 3. Testing in Overlapped liquidities
+    // To check whether the active liqudity range amount changes based on the tick movement when it moves out of some liquidity ranges.
 
-// 3. Testing in Overlapped liquidities
-// To check whether the active liqudity range amount changes based on the tick movement when it moves out of some liquidity ranges.
-
-function testSrSwapOnSrPoolMultipleOverlappedLiquidity1FZ() public {
+    function testSrSwapOnSrPoolMultipleOverlappedLiquidity1FZ() public {
         // positions were created in setup()
 
-         addLiquidityViaHook(
-            10000 ether,
-            -3000,
-            3000
-        );
-        addLiquidityViaHook(
-            1000 ether,
-            -60,
-            60
-        );
+        addLiquidityViaHook(10000 ether, -3000, 3000);
+        addLiquidityViaHook(1000 ether, -60, 60);
 
-        addLiquidityViaHook(
-            1000 ether,
-           -6000,
-           -2000
-        );
+        addLiquidityViaHook(1000 ether, -6000, -2000);
 
-        addLiquidityViaHook(
-            1000 ether,
-            12000,
-            24000
-        );
+        addLiquidityViaHook(1000 ether, 12000, 24000);
 
-        addLiquidityViaHook(
-            1000 ether,
-            -120,
-            120
-        );
+        addLiquidityViaHook(1000 ether, -120, 120);
 
         displayPoolLiq(key);
 
-
-       (uint128 bidLiquidityBefore, uint128 liquidityBefore, uint128 virtualBidLiquidityBefore, uint128  virtualOfferliquidityBefore) = hook.getSrPoolLiquidity(key);
+        (
+            uint128 bidLiquidityBefore,
+            uint128 liquidityBefore,
+            uint128 virtualBidLiquidityBefore,
+            uint128 virtualOfferliquidityBefore
+        ) = hook.getSrPoolLiquidity(key);
         console.log("Liquidity data Before");
 
         console.logUint(bidLiquidityBefore);
@@ -583,7 +540,7 @@ function testSrSwapOnSrPoolMultipleOverlappedLiquidity1FZ() public {
         assertEq(bidLiquidityBefore, 12000 ether);
         assertEq(liquidityBefore, 12000 ether);
 
-       SandwichAttackOneToZeroSwap();
+        SandwichAttackOneToZeroSwap();
 
         console.log("After Swap SQRT Prices and ticks");
         (Slot0 bid2, Slot0 offer2) = hook.getSrPoolSlot0(key);
@@ -592,7 +549,12 @@ function testSrSwapOnSrPoolMultipleOverlappedLiquidity1FZ() public {
         console.logInt(bid2.tick());
         console.logInt(offer2.tick());
 
-        (uint128 bidLiquidity, uint128 liquidity, uint128 virtualBidLiquidity, uint128  virtualOfferliquidity) = hook.getSrPoolLiquidity(key);
+        (
+            uint128 bidLiquidity,
+            uint128 liquidity,
+            uint128 virtualBidLiquidity,
+            uint128 virtualOfferliquidity
+        ) = hook.getSrPoolLiquidity(key);
         console.log("Liquidity data");
         console.logUint(bidLiquidity);
         console.logUint(liquidity);
@@ -603,19 +565,4 @@ function testSrSwapOnSrPoolMultipleOverlappedLiquidity1FZ() public {
         assertEq(liquidity, 10000 ether);
         // assertEq(virtualOfferliquidity, 12000 ether); // 12000 or 2000 extra
     }
-
-
-
-   // Liquidity after buy order once sandwich attack taken places in zeroForOne case
-
-
-    // 139014082579086214
-
-    // Check if liquidity is handled correctly for OneForZero
-
-    // Check the behaviour is correct in case of zeroForOne
-
-    // Check if liquidity is handled correctly for zeroForOne
-
-    // Check if liquidity is handled correctly for zeroForOne
 }
