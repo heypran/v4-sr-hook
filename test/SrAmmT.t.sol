@@ -10,20 +10,26 @@ import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {CurrencyLibrary, Currency} from "v4-core/src/types/Currency.sol";
+import {Slot0} from "v4-core/src/types/Slot0.sol";
 import {PoolSwapTest} from "v4-core/src/test/PoolSwapTest.sol";
 import {Deployers} from "v4-core/test/utils/Deployers.sol";
-import {Counter} from "../src/Counter.sol";
+import {SrAmmHookV2} from "../src/SrAmmHookV2.sol";
 import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
+
 import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
 
-contract CounterTest is Test, Deployers {
+contract SrAmmHookV2Test is Test, Deployers {
     using PoolIdLibrary for PoolKey;
     using CurrencyLibrary for Currency;
     using StateLibrary for IPoolManager;
+
+    SrAmmHookV2 hook;
+    PoolId poolId;
+
     address attacker;
     address user;
-    Counter hook;
-    PoolId poolId;
+
+    int24 tickSpacing = 1;
 
     function setUp() public {
         // creates the pool manager, utility routers, and test tokens
@@ -33,24 +39,45 @@ contract CounterTest is Test, Deployers {
         // Deploy the hook to an address with the correct flags
         address flags = address(
             uint160(
-                Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_ADD_LIQUIDITY_FLAG
-                    | Hooks.BEFORE_REMOVE_LIQUIDITY_FLAG
-            ) ^ (0x4444 << 144) // Namespace the hook to avoid collisions
+                Hooks.BEFORE_SWAP_FLAG |
+                    Hooks.AFTER_SWAP_FLAG |
+                    Hooks.AFTER_INITIALIZE_FLAG |
+                    Hooks.AFTER_ADD_LIQUIDITY_FLAG |
+                    Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
+                    Hooks.BEFORE_ADD_LIQUIDITY_FLAG
+            ) ^ (0x4441 << 144) // Namespace the hook to avoid collisions
         );
-        deployCodeTo("Counter.sol:Counter", abi.encode(manager), flags);
-        hook = Counter(flags);
+
+        deployCodeTo("SrAmmHookV2.sol:SrAmmHookV2", abi.encode(manager), flags);
+        hook = SrAmmHookV2(flags);
 
         // Create the pool
-        key = PoolKey(currency0, currency1, 3000, 1, IHooks(hook));
+        key = PoolKey(currency0, currency1, 100, tickSpacing, IHooks(hook));
         poolId = key.toId();
         manager.initialize(key, SQRT_PRICE_1_1, ZERO_BYTES);
 
+        // Not using this
         // Provide full-range liquidity to the pool
+        // modifyLiquidityRouter.modifyLiquidity(
+        //     key,
+        //     IPoolManager.ModifyLiquidityParams(
+        //         -2,
+        //         2,
+        //         10_000 ether, // 10000000000000000000000
+        //         0
+        //     ),
+        //     ZERO_BYTES
+        // );
+
+        // addLiquidityViaHook(
+        //     10_000 ether,
+        //     TickMath.minUsableTick(tickSpacing),
+        //     TickMath.maxUsableTick(tickSpacing)
+        // );
         fundAttackerUsers();
     }
 
-
-       function addLiquidity(
+    function addLiquidityViaHook(
         int256 liquidityDelta,
         int24 minTick,
         int24 maxTick
@@ -64,9 +91,14 @@ contract CounterTest is Test, Deployers {
             10000 ether
         );
 
-        hook.modifyLiquidity(
+        hook.addLiquidity(
             key,
-           IPoolManager.ModifyLiquidityParams(minTick, maxTick, liquidityDelta, 0),
+            IPoolManager.ModifyLiquidityParams(
+                minTick,
+                maxTick,
+                liquidityDelta,
+                0
+            ),
             ZERO_BYTES
         );
     }
@@ -78,7 +110,6 @@ contract CounterTest is Test, Deployers {
         vm.deal(attacker, 1 ether);
         vm.deal(user, 1 ether);
     }
-
 
     function fundCurrencyAndApproveRouter(
         address to,
@@ -98,8 +129,34 @@ contract CounterTest is Test, Deployers {
         vm.stopPrank();
     }
 
+    function testSrPoolInitialized() public {
+        (Slot0 bid, Slot0 offer) = hook.getSrPoolSlot0(key);
 
-    function SandwichAttackZeroToOneSwap() public {
+        assertEq(bid.sqrtPriceX96(), SQRT_PRICE_1_1);
+        assertEq(offer.sqrtPriceX96(), SQRT_PRICE_1_1);
+    }
+
+
+    function displayPoolLiq(PoolKey memory key) internal {
+        (uint128 bidLiq, uint128 offerLiq, uint128 vBLiq, uint128 vOLiq) = hook
+            .getSrPoolLiquidity(key);
+        console.log("Liquidity------");
+        console.log(bidLiq);
+        console.log(offerLiq);
+        console.log(vBLiq);
+        console.log(vOLiq);
+
+        (Slot0 bid, Slot0 offer) = hook.getSrPoolSlot0(key);
+        console.log("Pool SQRT ----");
+        console.log(bid.sqrtPriceX96());
+        console.log(offer.sqrtPriceX96());
+        console.log("Pool Tick ----");
+        console.logInt(bid.tick());
+        console.logInt(offer.tick());
+    }
+
+
+function SandwichAttackZeroToOneSwap() public {
  // trasfer token1 to attacker and user
 
         uint256 token0AttackerBeforeAmount = 10 ether;
@@ -132,6 +189,8 @@ contract CounterTest is Test, Deployers {
             console.log("User.......");
             vm.startPrank(user);
 
+            displayPoolLiq(key);
+
             int256 userBuyAmount = -int256(token0UserBeforeAmount); // negative number indicates exact input swap!
             BalanceDelta swapDelta2 = swap(
                 key,
@@ -144,6 +203,8 @@ contract CounterTest is Test, Deployers {
             // --- attacker --- //
             vm.startPrank(attacker);
             console.log("Attacker........");
+
+            displayPoolLiq(key);
 
             // approve router to spend, as it needs to settle
             MockERC20(Currency.unwrap(currency1)).approve(
@@ -165,6 +226,7 @@ contract CounterTest is Test, Deployers {
                 ZERO_BYTES
             );
             vm.stopPrank();
+
             
         }
         // ------------------- //
@@ -204,6 +266,8 @@ function SandwichAttackOneToZeroSwap() public {
             console.log("User.......");
             vm.startPrank(user);
 
+            displayPoolLiq(key);
+
             int256 userBuyAmount = -int256(token1UserBeforeAmount); // negative number indicates exact input swap!
             BalanceDelta swapDelta2 = swap(
                 key,
@@ -217,6 +281,7 @@ function SandwichAttackOneToZeroSwap() public {
             vm.startPrank(attacker);
             console.log("Attacker........");
 
+            displayPoolLiq(key);
 
             // approve router to spend, as it needs to settle
             MockERC20(Currency.unwrap(currency0)).approve(
@@ -242,86 +307,84 @@ function SandwichAttackOneToZeroSwap() public {
         // ------------------- //
 }
 
-
-     function testCounterHooksFullRangeLiquidity() public {
-
-        addLiquidity(1000 ether , -1000, 1000);
-        addLiquidity(1000 ether ,-6000,-1000);
-
-        SandwichAttackZeroToOneSwap();
-          (uint160 sqrtPriceX96, int24 tick, , uint24 lpFee) = StateLibrary.getSlot0(manager, poolId);
-          console.log("Slot0 Info----");
-          console.logUint(sqrtPriceX96);
-          console.logInt(tick);
-          console.logInt(tick);
-
-          (uint128 liquidity) =  StateLibrary.getLiquidity(manager, poolId);
-          console.log("liquidity002----");
-          console.logUint(liquidity);
-     
-     }
-
-     //ZEROFORONE CASES
+//ZEROFORONE CASES
  // 1. Testing liquidity changes for simple attack swap from zero for one. This invloves active liquidity remains unchanged
  function testSrSwapOnSrPoolActiveLiquidityRangeNoChangesZF1() public {
         // positions were created in setup()
-         addLiquidity(
+
+         addLiquidityViaHook(
             1000 ether,
-           -3000,
+            -3000,
             3000
-       
             );
 
-            addLiquidity(
+            addLiquidityViaHook(
             1000 ether,
-           -6000,
+          -6000,
            -3000
         );
+
+        displayPoolLiq(key);
 
        SandwichAttackZeroToOneSwap();
 
         console.log("After Swap SQRT Prices and ticks");
-           (uint160 sqrtPriceX96, int24 tick, , uint24 lpFee) = StateLibrary.getSlot0(manager, poolId);
-          console.log("Slot0 Info----");
-          console.logUint(sqrtPriceX96);
-          console.logInt(tick);
-          console.logInt(tick);
+        (Slot0 bid2, Slot0 offer2) = hook.getSrPoolSlot0(key);
+        console.log(bid2.sqrtPriceX96());
+        console.log(offer2.sqrtPriceX96());
+        console.logInt(bid2.tick());
+        console.logInt(offer2.tick());
 
- 
-        (uint128 liquidity) = StateLibrary.getLiquidity(manager, poolId);
+        (uint128 bidLiquidity, uint128 liquidity, uint128 virtualBidLiquidity, uint128  virtualOfferliquidity) = hook.getSrPoolLiquidity(key);
         console.log("Liquidity data");
+        console.logUint(bidLiquidity);
         console.logUint(liquidity);
+        console.logUint(virtualBidLiquidity);
+        console.logUint(virtualOfferliquidity);
+
+        assertEq(bidLiquidity, 1000 ether);
+        assertEq(liquidity, 1000 ether);
+        assertEq(virtualBidLiquidity, 0 ether);
+        assertEq(virtualOfferliquidity, 0 ether);
     }
 //2. Testing liquidity changes for simple attack swap from zero for one. This invloves active liquidity changes
  function testSrSwapOnSrPoolActiveLiquidityRangeChangesZF1() public {
         // positions were created in setup()
 
-         addLiquidity(
+         addLiquidityViaHook(
             1000 ether,
             -1800,
             1800
             );
 
-            addLiquidity(
+            addLiquidityViaHook(
             1000 ether,
           -6000,
            -1800
         );
 
+        displayPoolLiq(key);
+
        SandwichAttackZeroToOneSwap();
 
         console.log("After Swap SQRT Prices and ticks");
-       (uint160 sqrtPriceX96, int24 tick, , uint24 lpFee) = StateLibrary.getSlot0(manager, poolId);
-          console.log("Slot0 Info----");
-          console.logUint(sqrtPriceX96);
-          console.logInt(tick);
-          console.logInt(tick);
+        (Slot0 bid2, Slot0 offer2) = hook.getSrPoolSlot0(key);
+        console.log(bid2.sqrtPriceX96());
+        console.log(offer2.sqrtPriceX96());
+        console.logInt(bid2.tick());
+        console.logInt(offer2.tick());
 
- 
-        (uint128 liquidity) = StateLibrary.getLiquidity(manager, poolId);
+        (uint128 bidLiquidity, uint128 liquidity, uint128 virtualBidLiquidity, uint128  virtualOfferliquidity) = hook.getSrPoolLiquidity(key);
         console.log("Liquidity data");
+        console.logUint(bidLiquidity);
         console.logUint(liquidity);
-        // assertEq(liquidity, 10000 ether);
+        console.logUint(virtualBidLiquidity);
+        console.logUint(virtualOfferliquidity);
+
+        assertEq(bidLiquidity, 1000 ether);
+        assertEq(liquidity, 1000 ether);
+        assertEq(virtualBidLiquidity, 0 ether);
+        assertEq(virtualOfferliquidity, 1000 ether);
     }
 
 // 3. Testing in Overlapped liquidities
@@ -330,51 +393,65 @@ function SandwichAttackOneToZeroSwap() public {
 function testSrSwapOnSrPoolMultipleOverlappedLiquidityZF1() public {
         // positions were created in setup()
 
-         addLiquidity(
+         addLiquidityViaHook(
             10000 ether,
             -3000,
             3000
         );
-        addLiquidity(
+        addLiquidityViaHook(
             1000 ether,
             -60,
             60
         );
 
-        addLiquidity(
+        addLiquidityViaHook(
             1000 ether,
            2000,
            6000
         );
 
-        addLiquidity(
+        addLiquidityViaHook(
             1000 ether,
             -24000,
             -12000
         );
 
-        addLiquidity(
+        addLiquidityViaHook(
             1000 ether,
             -120,
             120
         );
 
+        displayPoolLiq(key);
 
 
-     SandwichAttackZeroToOneSwap();
+       (uint128 bidLiquidityBefore, uint128 liquidityBefore, uint128 virtualBidLiquidityBefore, uint128  virtualOfferliquidityBefore) = hook.getSrPoolLiquidity(key);
+        console.log("Liquidity data Before");
 
+        console.logUint(bidLiquidityBefore);
+        console.logUint(liquidityBefore);
+        assertEq(bidLiquidityBefore, 12000 ether);
+        assertEq(liquidityBefore, 12000 ether);
 
+       SandwichAttackZeroToOneSwap();
 
         console.log("After Swap SQRT Prices and ticks");
-       (uint160 sqrtPriceX96, int24 tick, , uint24 lpFee) = StateLibrary.getSlot0(manager, poolId);
-          console.log("Slot0 Info----");
-          console.logUint(sqrtPriceX96);
-          console.logInt(tick);
-          console.logInt(tick);
+        (Slot0 bid2, Slot0 offer2) = hook.getSrPoolSlot0(key);
+        console.log(bid2.sqrtPriceX96());
+        console.log(offer2.sqrtPriceX96());
+        console.logInt(bid2.tick());
+        console.logInt(offer2.tick());
 
-       (uint128 liquidity) = StateLibrary.getLiquidity(manager, poolId);
+        (uint128 bidLiquidity, uint128 liquidity, uint128 virtualBidLiquidity, uint128  virtualOfferliquidity) = hook.getSrPoolLiquidity(key);
         console.log("Liquidity data");
+        console.logUint(bidLiquidity);
         console.logUint(liquidity);
+        console.logUint(virtualBidLiquidity);
+        console.logUint(virtualOfferliquidity);
+
+        assertEq(bidLiquidity, 10000 ether);
+        assertEq(liquidity, 12000 ether);
+        // assertEq(virtualOfferliquidity, 12000 ether); // 12000 or 2000 extra
     }
     
    
@@ -383,63 +460,80 @@ function testSrSwapOnSrPoolMultipleOverlappedLiquidityZF1() public {
 function testSrSwapOnSrPoolActiveLiquidityRangeNoChanges1FZ() public {
         // positions were created in setup()
 
-         addLiquidity(
+         addLiquidityViaHook(
             1000 ether,
             -3000,
             3000
             );
 
-            addLiquidity(
+            addLiquidityViaHook(
             1000 ether,
             3000,
             6000
         );
 
+        displayPoolLiq(key);
+
        SandwichAttackOneToZeroSwap();
 
         console.log("After Swap SQRT Prices and ticks");
-        (uint160 sqrtPriceX96, int24 tick, , uint24 lpFee) = StateLibrary.getSlot0(manager, poolId);
-          console.log("Slot0 Info----");
-          console.logUint(sqrtPriceX96);
-          console.logInt(tick);
-          console.logInt(tick);
+        (Slot0 bid2, Slot0 offer2) = hook.getSrPoolSlot0(key);
+        console.log(bid2.sqrtPriceX96());
+        console.log(offer2.sqrtPriceX96());
+        console.logInt(bid2.tick());
+        console.logInt(offer2.tick());
 
-        (uint128 liquidity) = StateLibrary.getLiquidity(manager, poolId);
+        (uint128 bidLiquidity, uint128 liquidity, uint128 virtualBidLiquidity, uint128  virtualOfferliquidity) = hook.getSrPoolLiquidity(key);
         console.log("Liquidity data");
+        console.logUint(bidLiquidity);
         console.logUint(liquidity);
-        // assertEq(liquidity, 10000 ether);
+        console.logUint(virtualBidLiquidity);
+        console.logUint(virtualOfferliquidity);
+
+        assertEq(bidLiquidity, 1000 ether);
+        assertEq(liquidity, 1000 ether);
+        assertEq(virtualBidLiquidity, 0 ether);
+        assertEq(virtualOfferliquidity, 0 ether);
     }
 
        // 2. Testing liquidity changes for simple attack swap from zero for one. This invloves active liquidity changes
 function testSrSwapOnSrPoolActiveLiquidityRangeChanges1FZ() public {
         // positions were created in setup()
 
-         addLiquidity(
+         addLiquidityViaHook(
             1000 ether,
             -1800,
             1800
             );
 
-            addLiquidity(
+            addLiquidityViaHook(
             1000 ether,
             1800,
             6000
         );
 
+        displayPoolLiq(key);
+
        SandwichAttackOneToZeroSwap();
 
         console.log("After Swap SQRT Prices and ticks");
-   (uint160 sqrtPriceX96, int24 tick, , uint24 lpFee) = StateLibrary.getSlot0(manager, poolId);
-          console.log("Slot0 Info----");
-          console.logUint(sqrtPriceX96);
-          console.logInt(tick);
-          console.logInt(tick);
+        (Slot0 bid2, Slot0 offer2) = hook.getSrPoolSlot0(key);
+        console.log(bid2.sqrtPriceX96());
+        console.log(offer2.sqrtPriceX96());
+        console.logInt(bid2.tick());
+        console.logInt(offer2.tick());
 
-  
-        (uint128 liquidity) = StateLibrary.getLiquidity(manager, poolId);
+        (uint128 bidLiquidity, uint128 liquidity, uint128 virtualBidLiquidity, uint128  virtualOfferliquidity) = hook.getSrPoolLiquidity(key);
         console.log("Liquidity data");
+        console.logUint(bidLiquidity);
         console.logUint(liquidity);
-        // assertEq(liquidity, 10000 ether);
+        console.logUint(virtualBidLiquidity);
+        console.logUint(virtualOfferliquidity);
+
+        assertEq(bidLiquidity, 1000 ether);
+        assertEq(liquidity, 1000 ether);
+        assertEq(virtualBidLiquidity, 1000 ether);
+        assertEq(virtualOfferliquidity, 0 ether);
     }
 
 
@@ -449,49 +543,79 @@ function testSrSwapOnSrPoolActiveLiquidityRangeChanges1FZ() public {
 function testSrSwapOnSrPoolMultipleOverlappedLiquidity1FZ() public {
         // positions were created in setup()
 
-         addLiquidity(
+         addLiquidityViaHook(
             10000 ether,
             -3000,
             3000
         );
-        addLiquidity(
+        addLiquidityViaHook(
             1000 ether,
             -60,
             60
         );
 
-        addLiquidity(
+        addLiquidityViaHook(
             1000 ether,
            -6000,
            -2000
         );
 
-        addLiquidity(
+        addLiquidityViaHook(
             1000 ether,
             12000,
             24000
         );
 
-        addLiquidity(
+        addLiquidityViaHook(
             1000 ether,
             -120,
             120
         );
 
+        displayPoolLiq(key);
+
+
+       (uint128 bidLiquidityBefore, uint128 liquidityBefore, uint128 virtualBidLiquidityBefore, uint128  virtualOfferliquidityBefore) = hook.getSrPoolLiquidity(key);
+        console.log("Liquidity data Before");
+
+        console.logUint(bidLiquidityBefore);
+        console.logUint(liquidityBefore);
+        assertEq(bidLiquidityBefore, 12000 ether);
+        assertEq(liquidityBefore, 12000 ether);
+
        SandwichAttackOneToZeroSwap();
 
         console.log("After Swap SQRT Prices and ticks");
-    (uint160 sqrtPriceX96, int24 tick, , uint24 lpFee) = StateLibrary.getSlot0(manager, poolId);
-          console.log("Slot0 Info----");
-          console.logUint(sqrtPriceX96);
-          console.logInt(tick);
-          console.logInt(tick);
+        (Slot0 bid2, Slot0 offer2) = hook.getSrPoolSlot0(key);
+        console.log(bid2.sqrtPriceX96());
+        console.log(offer2.sqrtPriceX96());
+        console.logInt(bid2.tick());
+        console.logInt(offer2.tick());
 
-        (uint128 liquidity) = StateLibrary.getLiquidity(manager, poolId);
+        (uint128 bidLiquidity, uint128 liquidity, uint128 virtualBidLiquidity, uint128  virtualOfferliquidity) = hook.getSrPoolLiquidity(key);
         console.log("Liquidity data");
+        console.logUint(bidLiquidity);
         console.logUint(liquidity);
-        // assertEq(liquidity, 10000 ether);
+        console.logUint(virtualBidLiquidity);
+        console.logUint(virtualOfferliquidity);
+
+        assertEq(bidLiquidity, 12000 ether);
+        assertEq(liquidity, 10000 ether);
         // assertEq(virtualOfferliquidity, 12000 ether); // 12000 or 2000 extra
     }
-    
+
+
+
+   // Liquidity after buy order once sandwich attack taken places in zeroForOne case
+
+
+    // 139014082579086214
+
+    // Check if liquidity is handled correctly for OneForZero
+
+    // Check the behaviour is correct in case of zeroForOne
+
+    // Check if liquidity is handled correctly for zeroForOne
+
+    // Check if liquidity is handled correctly for zeroForOne
 }
