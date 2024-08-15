@@ -49,16 +49,6 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
     // a single hook contract should be able to service multiple pools
     // ---------------------------------------------------------------
 
-    struct SlotPrice {
-        int24 tick;
-        uint160 SqrtX96Price;
-    }
-
-    struct HookPoolState {
-        SlotPrice bid;
-        SlotPrice offer;
-    }
-
     struct CallbackData {
         address sender;
         PoolKey key;
@@ -67,9 +57,6 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
         bool settleUsingBurn;
         bool takeClaims;
     }
-    HookPoolState public hookPoolState;
-
-    int128 unspecifiedDelta;
 
     constructor(IPoolManager _poolManager) BaseHook(_poolManager) {}
 
@@ -83,12 +70,12 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
             Hooks.Permissions({
                 beforeInitialize: false,
                 afterInitialize: true, // initialize srPool
-                beforeAddLiquidity: true, // revert // not used atm
-                afterAddLiquidity: true, // maintain artificial liquidity
+                beforeAddLiquidity: true, // revert
+                afterAddLiquidity: false, // maintain artificial liquidity
                 beforeRemoveLiquidity: false,
                 afterRemoveLiquidity: false,
                 beforeSwap: true, // custom swap accounting
-                afterSwap: true, // settle reduced diffs
+                afterSwap: false, // settle reduced diffs
                 beforeDonate: false,
                 afterDonate: false,
                 beforeSwapReturnDelta: true, // custom swap // not used atm
@@ -135,9 +122,6 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
             ? uint256(-params.amountSpecified)
             : uint256(params.amountSpecified);
 
-        // address swapper = abi.decode(hookData, (address));
-        //        settleOutputTokenPostSwap(key, params, delta, swapper);
-
         int128 unspecifiedAmount;
 
         if (params.zeroForOne) {
@@ -182,12 +166,6 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
             );
         }
 
-        console.log("unspecifiedAmt");
-        console.logInt(unspecifiedAmount);
-        unspecifiedDelta = unspecifiedAmount;
-
-        // BeforeSwapDelta returnDelta = toBeforeSwapDelta(0, unspecifiedAmount);
-
         return (BaseHook.beforeSwap.selector, returnDelta, 0);
     }
 
@@ -221,43 +199,15 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
         bytes calldata
     ) external override returns (bytes4) {
         // revert here
-        // not used currently
+        revert();
+
         return BaseHook.beforeAddLiquidity.selector;
     }
 
-    function afterInitialize(
-        address sender,
-        PoolKey calldata key,
-        uint160 sqrtPriceX96,
-        int24 tick,
-        bytes calldata hookData
-    ) external override returns (bytes4) {
-        // PoolKey memory key, uint160 sqrtPriceX96, bytes calldata hookData
-        _initializePool(key, sqrtPriceX96);
-        // Implement your logic here
-        return BaseHook.afterInitialize.selector;
-    }
-
-    function initializePool(PoolKey memory key, uint160 sqrtPriceX96) external {
-        // PoolKey memory key, uint160 sqrtPriceX96, bytes calldata hookData
-        _initializePool(key, sqrtPriceX96);
-    }
-
-    function afterAddLiquidity(
-        address sender,
-        PoolKey calldata key,
-        IPoolManager.ModifyLiquidityParams calldata params,
-        BalanceDelta delta,
-        bytes calldata hookData
-    ) external override returns (bytes4, BalanceDelta) {
-        // not used will not be called
-        //srAmmAddLiquidity(key, params);
-
-        return (
-            BaseHook.afterAddLiquidity.selector,
-            BalanceDeltaLibrary.ZERO_DELTA
-        );
-    }
+    // function initializePool(PoolKey memory key, uint160 sqrtPriceX96) external {
+    //     // PoolKey memory key, uint160 sqrtPriceX96, bytes calldata hookData
+    //     _initializePool(key, sqrtPriceX96);
+    // }
 
     function afterSwap(
         address sender,
@@ -284,6 +234,19 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
         SrPool.SrPoolState storage srPoolState = _srPools[key.toId()];
 
         return (srPoolState.bid, srPoolState.offer);
+    }
+
+    function afterInitialize(
+        address sender,
+        PoolKey calldata key,
+        uint160 sqrtPriceX96,
+        int24 tick,
+        bytes calldata hookData
+    ) external override returns (bytes4) {
+        // PoolKey memory key, uint160 sqrtPriceX96, bytes calldata hookData
+        _initializePool(key, sqrtPriceX96);
+        // Implement your logic here
+        return BaseHook.afterInitialize.selector;
     }
 
     // only testing

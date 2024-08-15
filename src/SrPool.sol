@@ -164,6 +164,23 @@ library SrPool {
             .setLpFee(lpFee);
     }
 
+    function initializeAtNewSlot(
+        SrPoolState storage self
+    ) internal returns (Slot0 bid) {
+        Slot0 offerLast = self.offer;
+
+        // should be reset at every slot change
+        self.slotStartSqrtPriceX96 = offerLast.sqrtPriceX96();
+
+        // TODO remove fees and optmize
+        // refactor the Slot0 being used for both
+        self.bid = Slot0
+            .wrap(bytes32(0))
+            .setSqrtPriceX96(offerLast.sqrtPriceX96())
+            .setTick(offerLast.tick());
+        return self.bid;
+    }
+
     // function setProtocolFee(SrPoolState storage self, uint24 protocolFee) internal {
     //     self.checkPoolInitialized();
     //     self.slot0 = self.slot0.setProtocolFee(protocolFee);
@@ -782,8 +799,25 @@ library SrPool {
                             srSwapState.slotStartSqrtPriceX96 ==
                             srSwapState.sqrtPriceX96
                         ) {
-                            srSwapState.virtualOfferliquidity += srSwapState
-                                .bidliquidity;
+                            // should we calculate liquidity by getting
+                            // liquidity between two ticks instead adding range liquidity?
+                            // also, when are we decreasing this liquidity?
+
+                            // srSwapState.virtualOfferliquidity += srSwapState
+                            //     .bidliquidity;
+
+                            // in this case it will always be amount0?
+                            // since we are moving from right to left
+                            srSwapState.virtualOfferliquidity += uint128(
+                                SqrtPriceMath
+                                    .getAmount0Delta(
+                                        srSwapState.sqrtBidPriceX96,
+                                        step.sqrtPriceStartX96,
+                                        srSwapState.bidliquidity,
+                                        true
+                                    )
+                                    .toInt128()
+                            );
                         }
                     } else {
                         srSwapState.liquidity = LiquidityMath.addDelta(
@@ -800,8 +834,21 @@ library SrPool {
                             srSwapState.slotStartSqrtPriceX96 ==
                             srSwapState.sqrtBidPriceX96
                         ) {
-                            srSwapState.virtualBidliquidity += srSwapState
-                                .liquidity;
+                            // srSwapState.virtualBidliquidity += srSwapState
+                            //     .liquidity;
+
+                            // in this case it will always be amount1?
+                            // since we are moving from left to right
+                            srSwapState.virtualBidliquidity += uint128(
+                                SqrtPriceMath
+                                    .getAmount1Delta(
+                                        step.sqrtPriceStartX96,
+                                        srSwapState.sqrtPriceX96,
+                                        srSwapState.liquidity,
+                                        true
+                                    )
+                                    .toInt128()
+                            );
                         }
                     }
 
@@ -844,6 +891,26 @@ library SrPool {
                 srSwapState.bidTick = TickMath.getTickAtSqrtPrice(
                     srSwapState.sqrtBidPriceX96
                 );
+
+                // should we make bid virtual zero here?
+
+                if (
+                    srSwapState.slotStartSqrtPriceX96 ==
+                    srSwapState.sqrtPriceX96
+                ) {
+                    console.log(srSwapState.sqrtBidPriceX96);
+                    console.log(step.sqrtPriceStartX96);
+                    srSwapState.virtualOfferliquidity += uint128(
+                        SqrtPriceMath
+                            .getAmount0Delta(
+                                srSwapState.sqrtBidPriceX96,
+                                step.sqrtPriceStartX96,
+                                srSwapState.bidliquidity,
+                                true
+                            )
+                            .toInt128()
+                    );
+                }
             }
             // we also want to adjust sell price
             else if (
@@ -855,6 +922,29 @@ library SrPool {
                 srSwapState.tick = TickMath.getTickAtSqrtPrice(
                     srSwapState.sqrtPriceX96
                 );
+
+                // should we make offer virtual zero here?
+
+                if (
+                    srSwapState.slotStartSqrtPriceX96 ==
+                    srSwapState.sqrtBidPriceX96
+                ) {
+                    // srSwapState.virtualBidliquidity += srSwapState
+                    //     .liquidity;
+
+                    // in this case it will always be amount1?
+                    // since we are moving from left to right
+                    srSwapState.virtualBidliquidity += uint128(
+                        SqrtPriceMath
+                            .getAmount1Delta(
+                                step.sqrtPriceStartX96,
+                                srSwapState.sqrtPriceX96,
+                                srSwapState.liquidity,
+                                true
+                            )
+                            .toInt128()
+                    );
+                }
             }
         }
 

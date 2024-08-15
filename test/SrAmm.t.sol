@@ -39,13 +39,11 @@ contract SrAmmHookV2Test is Test, Deployers {
         // Deploy the hook to an address with the correct flags
         address flags = address(
             uint160(
-                Hooks.BEFORE_SWAP_FLAG |
-                    Hooks.AFTER_SWAP_FLAG |
-                    Hooks.AFTER_INITIALIZE_FLAG |
-                    Hooks.AFTER_ADD_LIQUIDITY_FLAG |
+                Hooks.AFTER_INITIALIZE_FLAG |
+                    Hooks.BEFORE_SWAP_FLAG |
                     Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
                     Hooks.BEFORE_ADD_LIQUIDITY_FLAG
-            ) ^ (0x4441 << 144) // Namespace the hook to avoid collisions
+            ) ^ (0x4411 << 144) // Namespace the hook to avoid collisions
         );
 
         deployCodeTo("SrAmmHookV2.sol:SrAmmHookV2", abi.encode(manager), flags);
@@ -74,6 +72,7 @@ contract SrAmmHookV2Test is Test, Deployers {
             TickMath.minUsableTick(tickSpacing),
             TickMath.maxUsableTick(tickSpacing)
         );
+
         fundAttackerUsers();
     }
 
@@ -553,8 +552,6 @@ contract SrAmmHookV2Test is Test, Deployers {
         console.log(diff);
     }
 
-    //
-    //
     function testSrSwapOnSrPoolVaryingLiquidity() public {
         // positions were created in setup()
 
@@ -645,8 +642,6 @@ contract SrAmmHookV2Test is Test, Deployers {
         uint256 diff = token0AttackerBeforeAmount - attackerBalance;
         console.log(diff);
     }
-
-    // 139014082579086214
 
     // Check if liquidity is handled correctly for OneForZero
 
