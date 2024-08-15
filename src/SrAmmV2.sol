@@ -40,6 +40,17 @@ contract SrAmmV2 is NoDelegateCall {
     mapping(PoolId id => SrPool.SrPoolState) internal _srPools;
     mapping(PoolId id => uint256 lastBlock) internal _lastBlock;
 
+    event Swap(
+        PoolId indexed id,
+        address sender,
+        int128 amount0,
+        int128 amount1,
+        uint160 sqrtPriceX96,
+        uint128 liquidity,
+        int24 tick,
+        uint24 fee
+    );
+
     function _initializePool(
         PoolKey memory key,
         uint160 sqrtPriceX96
@@ -60,16 +71,31 @@ contract SrAmmV2 is NoDelegateCall {
     ) internal returns (BalanceDelta swapDelta) {
         resetSlot(key);
 
-        (BalanceDelta result, , , ) = _srPools[key.toId()].swap(
-            SrPool.SwapParams({
-                tickSpacing: key.tickSpacing,
-                zeroForOne: params.zeroForOne,
-                amountSpecified: params.amountSpecified,
-                sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                lpFeeOverride: 0
-            })
-        );
+        (
+            BalanceDelta result,
+            ,
+            uint24 swapFee,
+            SrPool.SrSwapState memory srSwapState
+        ) = _srPools[key.toId()].swap(
+                SrPool.SwapParams({
+                    tickSpacing: key.tickSpacing,
+                    zeroForOne: params.zeroForOne,
+                    amountSpecified: params.amountSpecified,
+                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
+                    lpFeeOverride: 0
+                })
+            );
 
+        emit Swap(
+            key.toId(),
+            msg.sender,
+            result.amount0(),
+            result.amount1(),
+            srSwapState.sqrtPriceX96,
+            srSwapState.liquidity,
+            srSwapState.tick,
+            swapFee
+        );
         return result;
     }
 
@@ -91,7 +117,7 @@ contract SrAmmV2 is NoDelegateCall {
         return result;
     }
 
-    function resetSlot(PoolKey calldata key) internal view returns (bool) {
+    function resetSlot(PoolKey calldata key) internal returns (bool) {
         if (_lastBlock[key.toId()] == block.number) {
             return false;
         }
