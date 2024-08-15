@@ -49,16 +49,6 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
     // a single hook contract should be able to service multiple pools
     // ---------------------------------------------------------------
 
-    struct SlotPrice {
-        int24 tick;
-        uint160 SqrtX96Price;
-    }
-
-    struct HookPoolState {
-        SlotPrice bid;
-        SlotPrice offer;
-    }
-
     struct CallbackData {
         address sender;
         PoolKey key;
@@ -67,7 +57,6 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
         bool settleUsingBurn;
         bool takeClaims;
     }
-    HookPoolState public hookPoolState;
 
     constructor(IPoolManager _poolManager) BaseHook(_poolManager) {}
 
@@ -212,19 +201,6 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
         // revert here
         // not used currently
         return BaseHook.beforeAddLiquidity.selector;
-    }
-
-    function afterInitialize(
-        address sender,
-        PoolKey calldata key,
-        uint160 sqrtPriceX96,
-        int24 tick,
-        bytes calldata hookData
-    ) external override returns (bytes4) {
-        // PoolKey memory key, uint160 sqrtPriceX96, bytes calldata hookData
-        _initializePool(key, sqrtPriceX96);
-        // Implement your logic here
-        return BaseHook.afterInitialize.selector;
     }
 
     function initializePool(PoolKey memory key, uint160 sqrtPriceX96) external {
