@@ -69,8 +69,6 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
     }
     HookPoolState public hookPoolState;
 
-    int128 unspecifiedDelta;
-
     constructor(IPoolManager _poolManager) BaseHook(_poolManager) {}
 
     function getHookPermissions()
@@ -135,9 +133,6 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
             ? uint256(-params.amountSpecified)
             : uint256(params.amountSpecified);
 
-        // address swapper = abi.decode(hookData, (address));
-        //        settleOutputTokenPostSwap(key, params, delta, swapper);
-
         int128 unspecifiedAmount;
 
         if (params.zeroForOne) {
@@ -181,12 +176,6 @@ contract SrAmmHookV2 is BaseHook, SrAmmV2 {
                 unspecifiedAmount
             );
         }
-
-        console.log("unspecifiedAmt");
-        console.logInt(unspecifiedAmount);
-        unspecifiedDelta = unspecifiedAmount;
-
-        // BeforeSwapDelta returnDelta = toBeforeSwapDelta(0, unspecifiedAmount);
 
         return (BaseHook.beforeSwap.selector, returnDelta, 0);
     }
