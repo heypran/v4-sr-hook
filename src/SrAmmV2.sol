@@ -38,6 +38,7 @@ contract SrAmmV2 is NoDelegateCall {
     using LPFeeLibrary for uint24;
 
     mapping(PoolId id => SrPool.SrPoolState) internal _srPools;
+    mapping(PoolId id => uint256 lastBlock) internal _lastBlock;
 
     function _initializePool(
         PoolKey memory key,
@@ -54,9 +55,11 @@ contract SrAmmV2 is NoDelegateCall {
     }
 
     function srAmmSwap(
-        PoolKey memory key,
+        PoolKey calldata key,
         IPoolManager.SwapParams memory params
     ) internal returns (BalanceDelta swapDelta) {
+        resetSlot(key);
+
         (BalanceDelta result, , , ) = _srPools[key.toId()].swap(
             SrPool.SwapParams({
                 tickSpacing: key.tickSpacing,
@@ -86,5 +89,16 @@ contract SrAmmV2 is NoDelegateCall {
         );
 
         return result;
+    }
+
+    function resetSlot(PoolKey calldata key) internal view returns (bool) {
+        if (_lastBlock[key.toId()] == block.number) {
+            return false;
+        }
+
+        _srPools[key.toId()].initializeAtNewSlot();
+        _lastBlock[key.toId()] = block.number;
+
+        return true;
     }
 }

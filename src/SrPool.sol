@@ -164,6 +164,23 @@ library SrPool {
             .setLpFee(lpFee);
     }
 
+    function initializeAtNewSlot(
+        SrPoolState storage self
+    ) internal returns (Slot0 bid) {
+        Slot0 offerLast = self.offer;
+
+        // should be reset at every slot change
+        self.slotStartSqrtPriceX96 = offerLast.sqrtPriceX96();
+
+        // TODO remove fees and optmize
+        // refactor the Slot0 being used for both
+        self.bid = Slot0
+            .wrap(bytes32(0))
+            .setSqrtPriceX96(offerLast.sqrtPriceX96())
+            .setTick(offerLast.tick());
+        return self.bid;
+    }
+
     // function setProtocolFee(SrPoolState storage self, uint24 protocolFee) internal {
     //     self.checkPoolInitialized();
     //     self.slot0 = self.slot0.setProtocolFee(protocolFee);
