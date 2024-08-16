@@ -76,6 +76,27 @@ contract SrAmmHookV2Test is Test, Deployers {
         fundAttackerUsers();
     }
 
+    function testMultipleSwapsFullRange() public {
+        addLiquidityViaHook(
+            1000 ether,
+            TickMath.minUsableTick(60),
+            TickMath.maxUsableTick(60)
+        );
+
+        AttackerSwapTransaction(10 ether, true, false);
+        UserSwapTransaction(100 ether, true, false);
+        UserSellBackTheCurrency(100 ether);
+        AttackerSellBackTheCurrency(10 ether);
+        UserSwapTransaction(100 ether, true, false);
+        AttackerSwapTransaction(10 ether, true, false);
+        uint256 attackerFinalAmount = AttackerSellBackTheCurrency(10 ether);
+        uint256 userFinalAmount = UserSellBackTheCurrency(100 ether);
+
+        console.log("multiple swaps----->");
+        console.logUint(attackerFinalAmount);
+        console.logUint(userFinalAmount);
+    }
+
     function testSwapAttackTransactionInFullRange() public {
         addLiquidityViaHook(
             1000 ether,
@@ -85,7 +106,7 @@ contract SrAmmHookV2Test is Test, Deployers {
 
         AttackerSwapTransaction(10 ether, true, false);
         UserSwapTransaction(100 ether, true, false);
-        uint256 attackerSellAmount = MockERC20(Currency.unwrap(currency1))
+        uint256 attackerSellA`mount = MockERC20(Currency.unwrap(currency1))
             .balanceOf(address(attacker));
 
         vm.startPrank(attacker);
