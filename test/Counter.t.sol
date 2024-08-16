@@ -54,8 +54,8 @@ contract CounterTest is Test, Deployers {
     function testMultipleSwapsFullRange() public {
         addLiquidity(
             1000 ether,
-            TickMath.minUsableTick(60),
-            TickMath.maxUsableTick(60)
+            TickMath.minUsableTick(1),
+            TickMath.maxUsableTick(1)
         );
 
         AttackerSwapTransaction(10 ether, true, false);
