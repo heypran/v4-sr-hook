@@ -79,8 +79,8 @@ contract SrAmmHookV2Test is Test, Deployers {
     function testSwapAttackTransactionInFullRange() public {
         addLiquidityViaHook(
             1000 ether,
-            TickMath.minUsableTick(60),
-            TickMath.maxUsableTick(60)
+            TickMath.minUsableTick(1),
+            TickMath.maxUsableTick(1)
         );
 
         AttackerSwapTransaction(10 ether, true, false);
@@ -122,8 +122,8 @@ contract SrAmmHookV2Test is Test, Deployers {
     function testMultipleSwapAttackTransactionInFullRange() public {
         addLiquidityViaHook(
             1000 ether,
-            TickMath.minUsableTick(60),
-            TickMath.maxUsableTick(60)
+            TickMath.minUsableTick(1),
+            TickMath.maxUsableTick(1)
         );
 
         AttackerSwapTransaction(10 ether, true, false);
