@@ -92,7 +92,7 @@ contract SrAmmHookV2Test is Test, Deployers {
         uint256 attackerFinalAmount = AttackerSellBackTheCurrency(10 ether);
         uint256 userFinalAmount = UserSellBackTheCurrency(100 ether);
 
-        console.log("multiple swaps----->");
+        console.log("After multiple swaps----->");
         console.logUint(attackerFinalAmount);
         console.logUint(userFinalAmount);
     }
@@ -106,7 +106,7 @@ contract SrAmmHookV2Test is Test, Deployers {
 
         AttackerSwapTransaction(10 ether, true, false);
         UserSwapTransaction(100 ether, true, false);
-        uint256 attackerSellA`mount = MockERC20(Currency.unwrap(currency1))
+        uint256 attackerSellAmount = MockERC20(Currency.unwrap(currency1))
             .balanceOf(address(attacker));
 
         vm.startPrank(attacker);
