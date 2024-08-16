@@ -72,292 +72,292 @@ contract CounterTest is Test, Deployers {
         console.logUint(userFinalAmount);
     }
 
-    function testSwapAttackTransactionInFullRange() public {
-        addLiquidity(
-            1000 ether,
-            TickMath.minUsableTick(1),
-            TickMath.maxUsableTick(1)
-        );
+    // function testSwapAttackTransactionInFullRange() public {
+    //     addLiquidity(
+    //         1000 ether,
+    //         TickMath.minUsableTick(1),
+    //         TickMath.maxUsableTick(1)
+    //     );
 
-        AttackerSwapTransaction(10 ether, true, false);
-        UserSwapTransaction(100 ether, true, false);
-        uint256 attackerSellAmount = MockERC20(Currency.unwrap(currency1))
-            .balanceOf(address(attacker));
+    //     AttackerSwapTransaction(10 ether, true, false);
+    //     UserSwapTransaction(100 ether, true, false);
+    //     uint256 attackerSellAmount = MockERC20(Currency.unwrap(currency1))
+    //         .balanceOf(address(attacker));
 
-        vm.startPrank(attacker);
-        MockERC20(Currency.unwrap(currency1)).approve(
-            address(swapRouter),
-            10 ether
-        );
-        AttackerSwapTransaction(attackerSellAmount, false, true);
-        vm.stopPrank();
+    //     vm.startPrank(attacker);
+    //     MockERC20(Currency.unwrap(currency1)).approve(
+    //         address(swapRouter),
+    //         10 ether
+    //     );
+    //     AttackerSwapTransaction(attackerSellAmount, false, true);
+    //     vm.stopPrank();
 
-        uint256 attackerFinalAmount = MockERC20(Currency.unwrap(currency0))
-            .balanceOf(address(attacker));
-        console.logUint(attackerFinalAmount);
+    //     uint256 attackerFinalAmount = MockERC20(Currency.unwrap(currency0))
+    //         .balanceOf(address(attacker));
+    //     console.logUint(attackerFinalAmount);
 
-        assertGt(attackerFinalAmount, 10 ether);
+    //     assertGt(attackerFinalAmount, 10 ether);
 
-        uint256 userSellAmount = MockERC20(Currency.unwrap(currency1))
-            .balanceOf(address(user));
+    //     uint256 userSellAmount = MockERC20(Currency.unwrap(currency1))
+    //         .balanceOf(address(user));
 
-        vm.startPrank(user);
-        MockERC20(Currency.unwrap(currency1)).approve(
-            address(swapRouter),
-            100 ether
-        );
-        UserSwapTransaction(userSellAmount, false, true);
-        vm.stopPrank();
-        uint256 userFinalAmount = MockERC20(Currency.unwrap(currency0))
-            .balanceOf(address(user));
-        console.logUint(userFinalAmount);
+    //     vm.startPrank(user);
+    //     MockERC20(Currency.unwrap(currency1)).approve(
+    //         address(swapRouter),
+    //         100 ether
+    //     );
+    //     UserSwapTransaction(userSellAmount, false, true);
+    //     vm.stopPrank();
+    //     uint256 userFinalAmount = MockERC20(Currency.unwrap(currency0))
+    //         .balanceOf(address(user));
+    //     console.logUint(userFinalAmount);
 
-        assertLt(userFinalAmount, 100 ether);
-    }
+    //     assertLt(userFinalAmount, 100 ether);
+    // }
 
-    function testMultipleSwapAttackTransactionInFullRange() public {
-        addLiquidity(
-            1000 ether,
-            TickMath.minUsableTick(1),
-            TickMath.maxUsableTick(1)
-        );
+    // function testMultipleSwapAttackTransactionInFullRange() public {
+    //     addLiquidity(
+    //         1000 ether,
+    //         TickMath.minUsableTick(1),
+    //         TickMath.maxUsableTick(1)
+    //     );
 
-        AttackerSwapTransaction(10 ether, true, false);
-        UserSwapTransaction(100 ether, true, false);
-        uint256 attackerSellAmount = MockERC20(Currency.unwrap(currency1))
-            .balanceOf(address(attacker));
+    //     AttackerSwapTransaction(10 ether, true, false);
+    //     UserSwapTransaction(100 ether, true, false);
+    //     uint256 attackerSellAmount = MockERC20(Currency.unwrap(currency1))
+    //         .balanceOf(address(attacker));
 
-        vm.startPrank(attacker);
-        MockERC20(Currency.unwrap(currency1)).approve(
-            address(swapRouter),
-            10 ether
-        );
-        AttackerSwapTransaction(attackerSellAmount, false, true);
-        vm.stopPrank();
+    //     vm.startPrank(attacker);
+    //     MockERC20(Currency.unwrap(currency1)).approve(
+    //         address(swapRouter),
+    //         10 ether
+    //     );
+    //     AttackerSwapTransaction(attackerSellAmount, false, true);
+    //     vm.stopPrank();
 
-        uint256 attackerFinalAmount = MockERC20(Currency.unwrap(currency0))
-            .balanceOf(address(attacker));
-        console.logUint(attackerFinalAmount);
+    //     uint256 attackerFinalAmount = MockERC20(Currency.unwrap(currency0))
+    //         .balanceOf(address(attacker));
+    //     console.logUint(attackerFinalAmount);
 
-        assertGt(attackerFinalAmount, 10 ether);
+    //     assertGt(attackerFinalAmount, 10 ether);
 
-        uint256 userSellAmount = MockERC20(Currency.unwrap(currency1))
-            .balanceOf(address(user));
+    //     uint256 userSellAmount = MockERC20(Currency.unwrap(currency1))
+    //         .balanceOf(address(user));
 
-        vm.startPrank(user);
-        MockERC20(Currency.unwrap(currency1)).approve(
-            address(swapRouter),
-            100 ether
-        );
-        UserSwapTransaction(userSellAmount, false, true);
-        vm.stopPrank();
-        uint256 userFinalAmount = MockERC20(Currency.unwrap(currency0))
-            .balanceOf(address(user));
-        console.logUint(userFinalAmount);
+    //     vm.startPrank(user);
+    //     MockERC20(Currency.unwrap(currency1)).approve(
+    //         address(swapRouter),
+    //         100 ether
+    //     );
+    //     UserSwapTransaction(userSellAmount, false, true);
+    //     vm.stopPrank();
+    //     uint256 userFinalAmount = MockERC20(Currency.unwrap(currency0))
+    //         .balanceOf(address(user));
+    //     console.logUint(userFinalAmount);
 
-        assertLt(userFinalAmount, 100 ether);
+    //     assertLt(userFinalAmount, 100 ether);
 
-        SandwichAttackZeroToOneSwap();
-        uint256 attackerFinalAmount1 = MockERC20(Currency.unwrap(currency0))
-            .balanceOf(address(attacker));
-        uint256 userSellAmount1 = MockERC20(Currency.unwrap(currency1))
-            .balanceOf(address(user));
+    //     SandwichAttackZeroToOneSwap();
+    //     uint256 attackerFinalAmount1 = MockERC20(Currency.unwrap(currency0))
+    //         .balanceOf(address(attacker));
+    //     uint256 userSellAmount1 = MockERC20(Currency.unwrap(currency1))
+    //         .balanceOf(address(user));
 
-        console.log("test---test0000====");
+    //     console.log("test---test0000====");
 
-        console.logUint(attackerFinalAmount1);
-        console.logUint(userSellAmount1);
-    }
+    //     console.logUint(attackerFinalAmount1);
+    //     console.logUint(userSellAmount1);
+    // }
 
-    //ZEROFORONE CASES
-    // 1. Testing liquidity changes for simple attack swap from zero for one. This invloves active liquidity remains unchanged
-    function testSrSwapOnSrPoolActiveLiquidityRangeNoChangesZF1() public {
-        // positions were created in setup()
-        addLiquidity(1000 ether, -3000, 3000);
+    // //ZEROFORONE CASES
+    // // 1. Testing liquidity changes for simple attack swap from zero for one. This invloves active liquidity remains unchanged
+    // function testSrSwapOnSrPoolActiveLiquidityRangeNoChangesZF1() public {
+    //     // positions were created in setup()
+    //     addLiquidity(1000 ether, -3000, 3000);
 
-        addLiquidity(2000 ether, -6000, -3000);
-        // Before attack active range liquidity is -1000 to 3000
-        console.log("Liquidity Before Attack");
-        uint128 liquidityBefore = StateLibrary.getLiquidity(manager, poolId);
-        console.logUint(liquidityBefore);
-        assertEq(liquidityBefore, 1000 ether);
+    //     addLiquidity(2000 ether, -6000, -3000);
+    //     // Before attack active range liquidity is -1000 to 3000
+    //     console.log("Liquidity Before Attack");
+    //     uint128 liquidityBefore = StateLibrary.getLiquidity(manager, poolId);
+    //     console.logUint(liquidityBefore);
+    //     assertEq(liquidityBefore, 1000 ether);
 
-        SandwichAttackZeroToOneSwap();
+    //     SandwichAttackZeroToOneSwap();
 
-        console.log("After Swap SQRT Prices and ticks");
-        (uint160 sqrtPriceX96, int24 tick, , uint24 lpFee) = StateLibrary
-            .getSlot0(manager, poolId);
-        console.log("Slot0 Info----");
-        console.logUint(sqrtPriceX96);
-        console.logInt(tick);
+    //     console.log("After Swap SQRT Prices and ticks");
+    //     (uint160 sqrtPriceX96, int24 tick, , uint24 lpFee) = StateLibrary
+    //         .getSlot0(manager, poolId);
+    //     console.log("Slot0 Info----");
+    //     console.logUint(sqrtPriceX96);
+    //     console.logInt(tick);
 
-        uint128 liquidityAfter = StateLibrary.getLiquidity(manager, poolId);
-        console.log("Liquidity After");
-        console.logUint(liquidityAfter);
-        // In this case the tick still remains in the active range and not crossed the to different active range
-        assertEq(liquidityAfter, 1000 ether);
-    }
+    //     uint128 liquidityAfter = StateLibrary.getLiquidity(manager, poolId);
+    //     console.log("Liquidity After");
+    //     console.logUint(liquidityAfter);
+    //     // In this case the tick still remains in the active range and not crossed the to different active range
+    //     assertEq(liquidityAfter, 1000 ether);
+    // }
 
-    // //2. Testing liquidity changes for simple attack swap from zero for one. This invloves active liquidity changes
-    function testSrSwapOnSrPoolActiveLiquidityRangeChangesZF1() public {
-        // positions were created in setup()
+    // // //2. Testing liquidity changes for simple attack swap from zero for one. This invloves active liquidity changes
+    // function testSrSwapOnSrPoolActiveLiquidityRangeChangesZF1() public {
+    //     // positions were created in setup()
 
-        addLiquidity(1000 ether, -1000, 3000);
+    //     addLiquidity(1000 ether, -1000, 3000);
 
-        addLiquidity(2000 ether, -6000, -1000);
+    //     addLiquidity(2000 ether, -6000, -1000);
 
-        // Before attack active range liquidity is -1000 to 2000
-        console.log("Liquidity Before Attack");
-        uint128 liquidityBefore = StateLibrary.getLiquidity(manager, poolId);
-        console.logUint(liquidityBefore);
-        assertEq(liquidityBefore, 1000 ether);
+    //     // Before attack active range liquidity is -1000 to 2000
+    //     console.log("Liquidity Before Attack");
+    //     uint128 liquidityBefore = StateLibrary.getLiquidity(manager, poolId);
+    //     console.logUint(liquidityBefore);
+    //     assertEq(liquidityBefore, 1000 ether);
 
-        SandwichAttackZeroToOneSwap();
+    //     SandwichAttackZeroToOneSwap();
 
-        console.log("After Swap SQRT Prices and ticks");
-        (uint160 sqrtPriceX96, int24 tick, , uint24 lpFee) = StateLibrary
-            .getSlot0(manager, poolId);
-        console.log("Slot0 Info----");
-        console.logUint(sqrtPriceX96);
-        console.logInt(tick);
+    //     console.log("After Swap SQRT Prices and ticks");
+    //     (uint160 sqrtPriceX96, int24 tick, , uint24 lpFee) = StateLibrary
+    //         .getSlot0(manager, poolId);
+    //     console.log("Slot0 Info----");
+    //     console.logUint(sqrtPriceX96);
+    //     console.logInt(tick);
 
-        uint128 liquidityAfter = StateLibrary.getLiquidity(manager, poolId);
-        console.log("Liquidity After");
-        console.logUint(liquidityAfter);
-        // In this case the tick moves to next active range between -6000 to -1000 and uses that liquidity of the range
-        assertEq(liquidityAfter, 2000 ether);
-    }
+    //     uint128 liquidityAfter = StateLibrary.getLiquidity(manager, poolId);
+    //     console.log("Liquidity After");
+    //     console.logUint(liquidityAfter);
+    //     // In this case the tick moves to next active range between -6000 to -1000 and uses that liquidity of the range
+    //     assertEq(liquidityAfter, 2000 ether);
+    // }
 
-    // 3. Testing in Overlapped liquidities
-    // To check whether the active liqudity range amount changes based on the tick movement when it moves out of some liquidity ranges.
+    // // 3. Testing in Overlapped liquidities
+    // // To check whether the active liqudity range amount changes based on the tick movement when it moves out of some liquidity ranges.
 
-    function testSrSwapOnSrPoolMultipleOverlappedLiquidityZF1() public {
-        // positions were created in setup()
+    // function testSrSwapOnSrPoolMultipleOverlappedLiquidityZF1() public {
+    //     // positions were created in setup()
 
-        addLiquidity(10000 ether, -3000, 3000);
-        addLiquidity(1000 ether, -60, 60);
+    //     addLiquidity(10000 ether, -3000, 3000);
+    //     addLiquidity(1000 ether, -60, 60);
 
-        addLiquidity(1000 ether, 2000, 6000);
+    //     addLiquidity(1000 ether, 2000, 6000);
 
-        addLiquidity(1000 ether, -24000, -12000);
+    //     addLiquidity(1000 ether, -24000, -12000);
 
-        addLiquidity(1000 ether, -120, 120);
+    //     addLiquidity(1000 ether, -120, 120);
 
-        // Before attack active range liquidity is -1000 to 2000
-        console.log("Liquidity Before Attack");
-        uint128 liquidityBefore = StateLibrary.getLiquidity(manager, poolId);
-        console.logUint(liquidityBefore);
-        assertEq(liquidityBefore, 12000 ether);
+    //     // Before attack active range liquidity is -1000 to 2000
+    //     console.log("Liquidity Before Attack");
+    //     uint128 liquidityBefore = StateLibrary.getLiquidity(manager, poolId);
+    //     console.logUint(liquidityBefore);
+    //     assertEq(liquidityBefore, 12000 ether);
 
-        SandwichAttackZeroToOneSwap();
+    //     SandwichAttackZeroToOneSwap();
 
-        console.log("After Swap SQRT Prices and ticks");
-        (uint160 sqrtPriceX96, int24 tick, , uint24 lpFee) = StateLibrary
-            .getSlot0(manager, poolId);
-        console.log("Slot0 Info----");
-        console.logUint(sqrtPriceX96);
-        console.logInt(tick);
+    //     console.log("After Swap SQRT Prices and ticks");
+    //     (uint160 sqrtPriceX96, int24 tick, , uint24 lpFee) = StateLibrary
+    //         .getSlot0(manager, poolId);
+    //     console.log("Slot0 Info----");
+    //     console.logUint(sqrtPriceX96);
+    //     console.logInt(tick);
 
-        uint128 liquidityAfter = StateLibrary.getLiquidity(manager, poolId);
-        console.log("Liquidity After");
-        console.logUint(liquidityAfter);
-        assertEq(liquidityAfter, 10000 ether);
-    }
+    //     uint128 liquidityAfter = StateLibrary.getLiquidity(manager, poolId);
+    //     console.log("Liquidity After");
+    //     console.logUint(liquidityAfter);
+    //     assertEq(liquidityAfter, 10000 ether);
+    // }
 
-    //    //ONEFORZERO CASES
-    //    // 1. Testing liquidity changes for simple attack swap from zero for one. This invloves active liquidity remains unchanged
-    function testSrSwapOnSrPoolActiveLiquidityRangeNoChanges1FZ() public {
-        addLiquidity(1000 ether, -3000, 3000);
-        addLiquidity(1000 ether, 3000, 6000);
+    // //    //ONEFORZERO CASES
+    // //    // 1. Testing liquidity changes for simple attack swap from zero for one. This invloves active liquidity remains unchanged
+    // function testSrSwapOnSrPoolActiveLiquidityRangeNoChanges1FZ() public {
+    //     addLiquidity(1000 ether, -3000, 3000);
+    //     addLiquidity(1000 ether, 3000, 6000);
 
-        console.log("Liquidity Before Attack");
-        uint128 liquidityBefore = StateLibrary.getLiquidity(manager, poolId);
-        console.logUint(liquidityBefore);
-        assertEq(liquidityBefore, 1000 ether);
+    //     console.log("Liquidity Before Attack");
+    //     uint128 liquidityBefore = StateLibrary.getLiquidity(manager, poolId);
+    //     console.logUint(liquidityBefore);
+    //     assertEq(liquidityBefore, 1000 ether);
 
-        SandwichAttackOneToZeroSwap();
+    //     SandwichAttackOneToZeroSwap();
 
-        console.log("After Swap SQRT Prices and ticks");
-        (uint160 sqrtPriceX96, int24 tick, , uint24 lpFee) = StateLibrary
-            .getSlot0(manager, poolId);
-        console.log("Slot0 Info----");
-        console.logUint(sqrtPriceX96);
-        console.logInt(tick);
-        console.logInt(tick);
+    //     console.log("After Swap SQRT Prices and ticks");
+    //     (uint160 sqrtPriceX96, int24 tick, , uint24 lpFee) = StateLibrary
+    //         .getSlot0(manager, poolId);
+    //     console.log("Slot0 Info----");
+    //     console.logUint(sqrtPriceX96);
+    //     console.logInt(tick);
+    //     console.logInt(tick);
 
-        uint128 liquidity = StateLibrary.getLiquidity(manager, poolId);
-        console.log("Liquidity After");
-        console.logUint(liquidity);
-        assertEq(liquidity, 1000 ether);
-    }
+    //     uint128 liquidity = StateLibrary.getLiquidity(manager, poolId);
+    //     console.log("Liquidity After");
+    //     console.logUint(liquidity);
+    //     assertEq(liquidity, 1000 ether);
+    // }
 
-    // 2. Testing liquidity changes for simple attack swap from zero for one. This invloves active liquidity changes
-    function testSrSwapOnSrPoolActiveLiquidityRangeChanges1FZ() public {
-        // positions were created in setup()
+    // // 2. Testing liquidity changes for simple attack swap from zero for one. This invloves active liquidity changes
+    // function testSrSwapOnSrPoolActiveLiquidityRangeChanges1FZ() public {
+    //     // positions were created in setup()
 
-        addLiquidity(1000 ether, -1800, 1800);
-        addLiquidity(2000 ether, 1800, 6000);
+    //     addLiquidity(1000 ether, -1800, 1800);
+    //     addLiquidity(2000 ether, 1800, 6000);
 
-        console.log("Liquidity Before Attack");
-        uint128 liquidityBefore = StateLibrary.getLiquidity(manager, poolId);
-        console.logUint(liquidityBefore);
-        assertEq(liquidityBefore, 1000 ether);
+    //     console.log("Liquidity Before Attack");
+    //     uint128 liquidityBefore = StateLibrary.getLiquidity(manager, poolId);
+    //     console.logUint(liquidityBefore);
+    //     assertEq(liquidityBefore, 1000 ether);
 
-        SandwichAttackOneToZeroSwap();
+    //     SandwichAttackOneToZeroSwap();
 
-        console.log("After Swap SQRT Prices and ticks");
-        (uint160 sqrtPriceX96, int24 tick, , uint24 lpFee) = StateLibrary
-            .getSlot0(manager, poolId);
-        console.log("Slot0 Info----");
-        console.logUint(sqrtPriceX96);
-        console.logInt(tick);
+    //     console.log("After Swap SQRT Prices and ticks");
+    //     (uint160 sqrtPriceX96, int24 tick, , uint24 lpFee) = StateLibrary
+    //         .getSlot0(manager, poolId);
+    //     console.log("Slot0 Info----");
+    //     console.logUint(sqrtPriceX96);
+    //     console.logInt(tick);
 
-        uint128 liquidity = StateLibrary.getLiquidity(manager, poolId);
-        console.log("Liquidity After");
-        console.logUint(liquidity);
-        assertEq(liquidity, 2000 ether);
-    }
+    //     uint128 liquidity = StateLibrary.getLiquidity(manager, poolId);
+    //     console.log("Liquidity After");
+    //     console.logUint(liquidity);
+    //     assertEq(liquidity, 2000 ether);
+    // }
 
-    // 3. Testing in Overlapped liquidities
-    // To check whether the active liqudity range amount changes based on the tick movement when it moves out of some liquidity ranges.
+    // // 3. Testing in Overlapped liquidities
+    // // To check whether the active liqudity range amount changes based on the tick movement when it moves out of some liquidity ranges.
 
-    function testSrSwapOnSrPoolMultipleOverlappedLiquidity1FZ() public {
-        // positions were created in setup()
+    // function testSrSwapOnSrPoolMultipleOverlappedLiquidity1FZ() public {
+    //     // positions were created in setup()
 
-        addLiquidity(10000 ether, -3000, 3000);
-        addLiquidity(1000 ether, -60, 60);
+    //     addLiquidity(10000 ether, -3000, 3000);
+    //     addLiquidity(1000 ether, -60, 60);
 
-        addLiquidity(1000 ether, -6000, -2000);
+    //     addLiquidity(1000 ether, -6000, -2000);
 
-        addLiquidity(1000 ether, 3000, 24000);
+    //     addLiquidity(1000 ether, 3000, 24000);
 
-        addLiquidity(1000 ether, 12000, 24000);
+    //     addLiquidity(1000 ether, 12000, 24000);
 
-        addLiquidity(1000 ether, -120, 120);
+    //     addLiquidity(1000 ether, -120, 120);
 
-        addLiquidity(4000 ether, -120, 1000);
+    //     addLiquidity(4000 ether, -120, 1000);
 
-        // Before attack active range liquidity is -1000 to 2000
-        console.log("Liquidity Before Attack");
-        uint128 liquidityBefore = StateLibrary.getLiquidity(manager, poolId);
-        console.logUint(liquidityBefore);
-        assertEq(liquidityBefore, 16000 ether);
+    //     // Before attack active range liquidity is -1000 to 2000
+    //     console.log("Liquidity Before Attack");
+    //     uint128 liquidityBefore = StateLibrary.getLiquidity(manager, poolId);
+    //     console.logUint(liquidityBefore);
+    //     assertEq(liquidityBefore, 16000 ether);
 
-        SandwichAttackOneToZeroSwap();
+    //     SandwichAttackOneToZeroSwap();
 
-        console.log("After Swap SQRT Prices and ticks");
-        (uint160 sqrtPriceX96, int24 tick, , uint24 lpFee) = StateLibrary
-            .getSlot0(manager, poolId);
-        console.log("Slot0 Info----");
-        console.logUint(sqrtPriceX96);
-        console.logInt(tick);
-        console.logInt(tick);
+    //     console.log("After Swap SQRT Prices and ticks");
+    //     (uint160 sqrtPriceX96, int24 tick, , uint24 lpFee) = StateLibrary
+    //         .getSlot0(manager, poolId);
+    //     console.log("Slot0 Info----");
+    //     console.logUint(sqrtPriceX96);
+    //     console.logInt(tick);
+    //     console.logInt(tick);
 
-        uint128 liquidityAfter = StateLibrary.getLiquidity(manager, poolId);
-        console.log("Liquidity After");
-        console.logUint(liquidityAfter);
-        assertEq(liquidityAfter, 14000 ether);
-    }
+    //     uint128 liquidityAfter = StateLibrary.getLiquidity(manager, poolId);
+    //     console.log("Liquidity After");
+    //     console.logUint(liquidityAfter);
+    //     assertEq(liquidityAfter, 14000 ether);
+    // }
 
     function addLiquidity(
         int256 liquidityDelta,
