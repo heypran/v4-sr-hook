@@ -66,7 +66,7 @@ contract SrAmmV2 is NoDelegateCall {
     }
 
     function srAmmSwap(
-        PoolKey calldata key,
+        PoolKey memory key,
         IPoolManager.SwapParams memory params
     ) internal returns (BalanceDelta swapDelta) {
         resetSlot(key);
@@ -96,6 +96,7 @@ contract SrAmmV2 is NoDelegateCall {
             srSwapState.tick,
             swapFee
         );
+
         return result;
     }
 
@@ -117,7 +118,7 @@ contract SrAmmV2 is NoDelegateCall {
         return result;
     }
 
-    function resetSlot(PoolKey calldata key) internal returns (bool) {
+    function resetSlot(PoolKey memory key) internal returns (bool) {
         if (_lastBlock[key.toId()] == block.number) {
             return false;
         }
