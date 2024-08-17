@@ -459,7 +459,7 @@ library SrPool {
         //     ? self.liquidity // + self.virtualBidliquidity
         //     : self.virtualBidliquidity;
 
-        console.log("virtualLiquidty");
+        console.log("bidLiquidityStart");
         console.log(bidLiquidityStart);
         // console.log("Ticks");
         // console.logInt(offerSlotStart.tick());
@@ -542,14 +542,8 @@ library SrPool {
         }
 
         // continue swapping as long as we haven't used the entire input/output and haven't reached the price limit
-        SrSwapState memory newSrSwapState;
+        SrSwapState memory newSrSwapState = srSwapState;
 
-        newSrSwapState = computeSwapStepForOneSide(
-            self,
-            params,
-            srSwapState,
-            zeroForOne // update bidSide /offer side
-        );
         // console.log("amountSpecified Post BidSide");
         // console.logInt(srSwapState.amountCalculated.toInt128());
         // console.logInt(srSwapState.amountSpecifiedRemaining);
@@ -558,29 +552,42 @@ library SrPool {
         // update offerside
         if (
             zeroForOne &&
-            srSwapState.slotStartSqrtPriceX96 < srSwapState.sqrtBidPriceX96
+            srSwapState.slotStartSqrtPriceX96 < srSwapState.sqrtPriceX96
         ) {
             newSrSwapState = computeSwapStepForOneSide(
                 self,
                 params,
                 srSwapState,
-                false
+                false,
+                true //
             );
         }
 
-        // moving left to rigth and bid side is greater less than slot start
+        // moving left to right and bid side is less than slot start
         // update bidside
         if (
-            zeroForOne &&
-            srSwapState.slotStartSqrtPriceX96 < srSwapState.sqrtBidPriceX96
+            !zeroForOne &&
+            srSwapState.slotStartSqrtPriceX96 > srSwapState.sqrtBidPriceX96
         ) {
             newSrSwapState = computeSwapStepForOneSide(
                 self,
                 params,
                 srSwapState,
+                true,
                 true
             );
         }
+
+        newSrSwapState.amountSpecifiedRemaining = params.amountSpecified;
+        newSrSwapState.amountCalculated = 0;
+
+        newSrSwapState = computeSwapStepForOneSide(
+            self,
+            params,
+            newSrSwapState,
+            zeroForOne, // update bidSide /offer side
+            false
+        );
 
         // console.log("amountSpecified Post SellSide");
         // console.logInt(srSwapState.amountCalculated.toInt128());
@@ -646,7 +653,8 @@ library SrPool {
         SrPoolState storage self,
         SwapParams memory params,
         SrSwapState memory srSwapState,
-        bool isBidSide
+        bool isBidSide,
+        bool isVirtual
     ) internal returns (SrSwapState memory) {
         bool zeroForOne = params.zeroForOne;
         StepComputations memory step;
@@ -664,8 +672,8 @@ library SrPool {
                 ? srSwapState.sqrtBidPriceX96
                 : srSwapState.sqrtPriceX96;
 
-            // console.log("computeSwapStepForOneSide:  step.sqrtPriceStartX96");
-            // console.log(step.sqrtPriceStartX96);
+            console.log("computeSwapStepForOneSide:  step.sqrtPriceStartX96");
+            console.log(step.sqrtPriceStartX96);
 
             (step.tickNext, step.initialized) = self
                 .tickBitmap
@@ -700,11 +708,25 @@ library SrPool {
                 isBidSide
                     ? srSwapState.sqrtBidPriceX96
                     : srSwapState.sqrtPriceX96,
-                SwapMath.getSqrtPriceTarget(
-                    zeroForOne,
-                    step.sqrtPriceNextX96,
-                    params.sqrtPriceLimitX96
-                ),
+                isVirtual
+                    ? SwapMath.getSqrtPriceTarget(
+                        zeroForOne,
+                        step.sqrtPriceNextX96,
+                        zeroForOne
+                            ? params.sqrtPriceLimitX96 <
+                                srSwapState.slotStartSqrtPriceX96
+                                ? srSwapState.slotStartSqrtPriceX96
+                                : params.sqrtPriceLimitX96
+                            : params.sqrtPriceLimitX96 >
+                                srSwapState.slotStartSqrtPriceX96
+                            ? srSwapState.slotStartSqrtPriceX96
+                            : params.sqrtPriceLimitX96
+                    )
+                    : SwapMath.getSqrtPriceTarget(
+                        zeroForOne,
+                        step.sqrtPriceNextX96,
+                        params.sqrtPriceLimitX96
+                    ),
                 // problem with this approach is that when the price moves
                 // from left to right and goes beyond the first tick spacing window
                 // will appropriately adjust the liquidity?
@@ -945,6 +967,14 @@ library SrPool {
                             .toInt128()
                     );
                 }
+            }
+
+            // post swap check if we reached the slot start during virtual update
+            if (
+                isVirtual &&
+                srSwapState.sqrtPriceX96 == srSwapState.slotStartSqrtPriceX96
+            ) {
+                break;
             }
         }
 
