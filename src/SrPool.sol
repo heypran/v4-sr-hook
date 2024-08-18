@@ -970,11 +970,21 @@ library SrPool {
             }
 
             // post swap check if we reached the slot start during virtual update
-            if (
-                isVirtual &&
-                srSwapState.sqrtPriceX96 == srSwapState.slotStartSqrtPriceX96
-            ) {
-                break;
+            if (isVirtual) {
+                if (
+                    !isBidSide &&
+                    srSwapState.sqrtPriceX96 ==
+                    srSwapState.slotStartSqrtPriceX96
+                ) {
+                    break;
+                }
+                if (
+                    isBidSide &&
+                    srSwapState.sqrtBidPriceX96 ==
+                    srSwapState.slotStartSqrtPriceX96
+                ) {
+                    break;
+                }
             }
         }
 
