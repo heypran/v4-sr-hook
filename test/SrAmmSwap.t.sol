@@ -153,16 +153,14 @@ contract SrAmmHookV2Test is Test, Deployers {
         uint256 attackerFinalAmount = AttackerSellBackTheCurrency(10 ether);
 
         assertLt(attackerFinalAmount, 10 ether);
-
         uint256 userFinalAmount = UserSellBackTheCurrency(100 ether);
         console.logUint(userFinalAmount);
 
-        assertLt(userFinalAmount, 100 ether); // But the overall amount to the user is greater then the normal swap
+        assertLt(userFinalAmount, 100 ether); // But the overall amount to the user is greater then the normal swap ( the less is due to price changes ans the fees)
 
         console.log("First Attack");
         console.logUint(attackerFinalAmount);
         console.logUint(userFinalAmount);
-        displayPoolLiq(key);
 
         SandwichAttackZeroToOneSwap();
         uint256 attackerFinalAmount1 = MockERC20(Currency.unwrap(currency0))
