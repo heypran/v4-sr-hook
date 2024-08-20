@@ -234,7 +234,7 @@ contract SrAmmUtils is Test, Deployers {
         return attackerFinalBalance;
     }
 
-    function UserSwapTransaction(
+    function userSwapTransaction(
         uint256 amount,
         bool isZeroForOne,
         bool hasBalance,
@@ -268,7 +268,7 @@ contract SrAmmUtils is Test, Deployers {
         }
     }
 
-    function UserSellBackTheCurrency(
+    function userSellBackTheCurrency(
         uint256 swapRouterAmount,
         address userAddress,
         bool isZeroForOne
@@ -279,7 +279,9 @@ contract SrAmmUtils is Test, Deployers {
         ).balanceOf(address(userAddress));
         MockERC20(Currency.unwrap(isZeroForOne ? currency1 : currency0))
             .approve(address(swapRouter), swapRouterAmount);
-        UserSwapTransaction(userSellAmount, !isZeroForOne, true, userAddress);
+
+        userSwapTransaction(userSellAmount, !isZeroForOne, true, userAddress);
+
         vm.stopPrank();
         uint256 userFinalBalance = MockERC20(
             Currency.unwrap(isZeroForOne ? currency0 : currency1)
@@ -287,7 +289,7 @@ contract SrAmmUtils is Test, Deployers {
         return userFinalBalance;
     }
 
-    function SandwichAttackSwap(bool isZeroForOne) public {
+    function sandwichAttackSwap(bool isZeroForOne) public {
         // trasfer token1 to attacker and user
 
         uint256 token0AttackerBeforeAmount = 10 ether;

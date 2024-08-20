@@ -29,7 +29,7 @@ contract SrAmmHookV2Test is SrAmmUtils {
         );
 
         AttackerSwapTransaction(10 ether, true, false, attacker);
-        UserSwapTransaction(100 ether, true, false, user);
+        userSwapTransaction(100 ether, true, false, user);
 
         uint256 attackerAmountCurrency0 = AttackerSellBackTheCurrency(
             10 ether,
@@ -38,7 +38,7 @@ contract SrAmmHookV2Test is SrAmmUtils {
         );
 
         assertLt(attackerAmountCurrency0, 10 ether);
-        uint256 userAmountCurrency0 = UserSellBackTheCurrency(
+        uint256 userAmountCurrency0 = userSellBackTheCurrency(
             100 ether,
             user,
             true
@@ -50,8 +50,8 @@ contract SrAmmHookV2Test is SrAmmUtils {
         console.logUint(attackerAmountCurrency0);
         console.logUint(userAmountCurrency0);
         console.log("Second Attack");
-        SandwichAttackSwap(true);
-        uint256 userFinalAmountCurrency0 = UserSellBackTheCurrency(
+        sandwichAttackSwap(true);
+        uint256 userFinalAmountCurrency0 = userSellBackTheCurrency(
             100 ether,
             user,
             true
@@ -71,7 +71,7 @@ contract SrAmmHookV2Test is SrAmmUtils {
         );
 
         AttackerSwapTransaction(10 ether, true, false, attacker);
-        UserSwapTransaction(100 ether, true, false, user);
+        userSwapTransaction(100 ether, true, false, user);
         uint256 attackerAmountCurrency0 = AttackerSellBackTheCurrency(
             10 ether,
             attacker,
@@ -81,7 +81,7 @@ contract SrAmmHookV2Test is SrAmmUtils {
         vm.roll(block.number + 1);
         displayPoolLiq(key);
         AttackerSwapTransaction(10 ether, true, false, attacker);
-        UserSwapTransaction(100 ether, true, false, user);
+        userSwapTransaction(100 ether, true, false, user);
         vm.startPrank(attacker);
         uint256 attackerSellAmount = MockERC20(Currency.unwrap(currency1))
             .balanceOf(address(attacker));
@@ -129,7 +129,7 @@ contract SrAmmHookV2Test is SrAmmUtils {
         displayPoolLiq(key);
 
         AttackerSwapTransaction(10 ether, true, false, attacker);
-        UserSwapTransaction(100 ether, true, false, user);
+        userSwapTransaction(100 ether, true, false, user);
         uint256 attackerSellAmount = MockERC20(Currency.unwrap(currency1))
             .balanceOf(address(attacker));
 
@@ -155,7 +155,7 @@ contract SrAmmHookV2Test is SrAmmUtils {
             address(swapRouter),
             100 ether
         );
-        UserSwapTransaction(userSellAmount, false, true, user);
+        userSwapTransaction(userSellAmount, false, true, user);
         vm.stopPrank();
         uint256 userFinalAmount = MockERC20(Currency.unwrap(currency0))
             .balanceOf(address(user));

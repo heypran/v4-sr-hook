@@ -20,43 +20,45 @@ import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
 import {SqrtPriceMath} from "v4-core/src/libraries/SqrtPriceMath.sol";
 import {SrAmmUtils} from "./SrAmmUtils.t.sol";
 
-contract SrAmmHookV2Test is SrAmmUtils {
+// liquidity related scenarios
+contract SrAmmLiquidityTest is SrAmmUtils {
     //ZEROFORONE CASES
-    // 1. Testing liquidity changes for simple attack swap from zeroForOne. This invloves active liquidity remains unchanged
-    function testSrSwapOnSrPoolActiveLiquidityRangeNoChangesZF1() public {
+    // 1. Testing liquidity changes for sandwich attack for zeroForOne.
+    // This invloves active liquidity remains unchanged
+    function testLiquidityOnSwapZF1() public {
         addLiquidityViaHook(1000 ether, -3000, 3000);
         addLiquidityViaHook(1000 ether, -6000, -3000);
-        console.log("Liquidity Before Attack");
-        SandwichAttackSwap(true);
-        console.log("After Swap SQRT Prices and ticks");
-        (Slot0 bid2, Slot0 offer2) = hook.getSrPoolSlot0(key);
+
+        // perform sandwich attack for zeroForOne
+        sandwichAttackSwap(true);
+
+        (Slot0 bid, Slot0 offer) = hook.getSrPoolSlot0(key);
         (
             uint128 bidLiquidity,
             uint128 liquidity,
             uint128 virtualBidLiquidity,
             uint128 virtualOfferliquidity
         ) = hook.getSrPoolLiquidity(key);
-        assertGt(bid2.tick(), -3000);
-        assertLt(offer2.tick(), 3000);
+
+        assertGt(bid.tick(), -3000);
+        assertLt(offer.tick(), 3000);
         assertEq(bidLiquidity, 1000 ether);
         assertEq(liquidity, 1000 ether);
+        assertEq(virtualBidLiquidity, 0);
         assertGt(virtualOfferliquidity, 0);
     }
 
-    //2. Testing liquidity changes for simple attack swap from zero for one. This invloves active liquidity changes
-    function testSrSwapOnSrPoolActiveLiquidityRangeChangesZF1() public {
+    //2. Testing liquidity changes during sandwich attack for zeroForOne
+    //   with tick crossing (or change in active liquidity range)
+    function testLiquidityOnTickCrossoverSwapZF1() public {
         // positions were created in setup()
-        (
-            uint128 bidLiq,
-            uint128 offerLiq,
-            uint128 vBLiq,
-            uint128 vOLiq,
-            Slot0 intialBid,
-            Slot0 initialOffer
-        ) = displayPoolLiq(key);
+        (, , , , Slot0 intialBid, Slot0 initialOffer) = displayPoolLiq(key);
+
         addLiquidityViaHook(1000 ether, -1800, 1800);
         addLiquidityViaHook(2000 ether, -6000, -1800);
+
         AttackerSwapTransaction(10 ether, true, false, attacker);
+
         console.log("Attacker zeroForOne");
         (
             uint128 bidLiq1,
@@ -66,12 +68,15 @@ contract SrAmmHookV2Test is SrAmmUtils {
             Slot0 bid1,
             Slot0 offer1
         ) = displayPoolLiq(key);
+
         assertGt(intialBid.tick(), bid1.tick());
         assertEq(initialOffer.tick(), offer1.tick());
         assertGt(vOLiq1, 0);
         assertEq(vBLiq1, 0);
-        assertEq(bidLiq1, offerLiq1); // The ticks is still in active range of -1800 to 1800
-        UserSwapTransaction(100 ether, true, false, user);
+        // The tick should be still in active range of -1800 to 1800
+        assertEq(bidLiq1, offerLiq1);
+
+        userSwapTransaction(100 ether, true, false, user);
         (
             uint128 bidLiq2,
             uint128 offerLiq2,
@@ -80,24 +85,32 @@ contract SrAmmHookV2Test is SrAmmUtils {
             Slot0 bid2,
             Slot0 offer2
         ) = displayPoolLiq(key);
+
         assertGt(bid1.tick(), bid2.tick());
         assertEq(initialOffer.tick(), offer2.tick());
         assertGt(vOLiq2, vOLiq1);
         assertEq(vBLiq2, 0);
-        assertEq(bidLiq2, 2000 ether); // The ticks has move to another active range -6000, -1800
-        MockERC20(Currency.unwrap(currency0)).approve(
-            address(swapRouter),
-            10 ether
-        );
-        uint256 attackerSellAmount = MockERC20(Currency.unwrap(currency1))
-            .balanceOf(address(attacker));
+
+        // The ticks should move to another active range -6000, -1800
+        // which has liquidity of 2000 ether
+        assertEq(bidLiq2, 2000 ether);
+
+        // ------ //
         vm.startPrank(attacker);
+
+        uint256 attackerSellAmount = MockERC20(Currency.unwrap(currency1))
+            .balanceOf(attacker);
+
         MockERC20(Currency.unwrap(currency1)).approve(
             address(swapRouter),
-            10 ether
+            attackerSellAmount
         );
+
+        // attacker swap one for zero
         AttackerSwapTransaction(attackerSellAmount, false, true, attacker);
         vm.stopPrank();
+        // --- //
+
         (
             uint128 bidLiq3,
             uint128 offerLiq3,
@@ -106,31 +119,38 @@ contract SrAmmHookV2Test is SrAmmUtils {
             Slot0 bid3,
             Slot0 offer3
         ) = displayPoolLiq(key);
+
+        // tick should move lef to right
         assertGt(offer3.tick(), offer2.tick());
-        assertGt(vOLiq3, vOLiq2); // Is this should be less as we are moving on offer side ?
+        // TODO: Is this should be less as we are moving on offer side ?
+        assertGt(vOLiq3, vOLiq2);
+
+        // bid side active liquidity should remain same
         assertEq(bidLiq3, 2000 ether);
     }
 
-    // // 3. Testing in Overlapped liquidities
-    // To check whether the active liqudity range amount changes based on the tick movement when it moves out of some liquidity ranges.
+    // 3. Testing in overlapped active liquidity range
+    // To check whether the active liqudity changes based on the tick movement when it moves out of some liquidity ranges.
     function testSrSwapOnSrPoolMultipleOverlappedLiquidityZF1() public {
-        // positions were created in setup()
+        // initial active liquidity range around tick 0
+        // total is 12000
         addLiquidityViaHook(10000 ether, -3000, 3000);
         addLiquidityViaHook(1000 ether, -60, 60);
-        addLiquidityViaHook(1000 ether, 2000, 6000);
-        addLiquidityViaHook(1000 ether, -24000, -12000);
         addLiquidityViaHook(1000 ether, -120, 120);
-        displayPoolLiq(key);
+
         (
             uint128 bidLiquidityBefore,
             uint128 liquidityBefore,
             uint128 virtualBidLiquidityBefore,
             uint128 virtualOfferliquidityBefore
         ) = hook.getSrPoolLiquidity(key);
+
         assertEq(bidLiquidityBefore, 12000 ether);
         assertEq(liquidityBefore, 12000 ether);
-        SandwichAttackSwap(true);
-        console.log("After Swap SQRT Prices and ticks");
+
+        // user is performing zeroForOne
+        sandwichAttackSwap(true);
+
         (Slot0 bid2, Slot0 offer2) = hook.getSrPoolSlot0(key);
         (
             uint128 bidLiquidity,
@@ -138,18 +158,26 @@ contract SrAmmHookV2Test is SrAmmUtils {
             uint128 virtualBidLiquidity,
             uint128 virtualOfferliquidity
         ) = hook.getSrPoolLiquidity(key);
-        displayPoolLiq(key);
+
+        // bid side liquidity should change to 10000
+        assertGt(bid2.tick(), -3000);
+        assertLt(bid2.tick(), -120);
         assertEq(bidLiquidity, 10000 ether);
+        // offer Liquidty should remain same
         assertEq(liquidity, 12000 ether);
+
         assertGt(virtualOfferliquidity, 0);
     }
 
-    //ONEFORZERO CASES
-    // 1. Testing liquidity changes for simple attack swap from zero for one. This invloves no active change in liquidity
+    // ONEFORZERO CASES
+    // 1. Testing liquidity changes for sandwich for one for zero.
+    // This invloves active liquidity remains unchanged
     function testSrSwapOnSrPoolActiveLiquidityRangeNoChanges1FZ() public {
         addLiquidityViaHook(1000 ether, -3000, 3000);
         addLiquidityViaHook(1000 ether, 3000, 6000);
-        SandwichAttackSwap(false);
+
+        sandwichAttackSwap(false);
+
         (Slot0 bid, Slot0 offer) = hook.getSrPoolSlot0(key);
         (
             uint128 bidLiquidity,

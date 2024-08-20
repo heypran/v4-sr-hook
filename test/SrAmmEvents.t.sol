@@ -21,6 +21,7 @@ import {SqrtPriceMath} from "v4-core/src/libraries/SqrtPriceMath.sol";
 import {ISrAmmv2} from "../src/ISrAmmV2.sol";
 import {SrAmmUtils} from "./SrAmmUtils.t.sol";
 
+// test events
 contract SrAmmIntializedEvent is Test, Deployers {
     using PoolIdLibrary for PoolKey;
     using CurrencyLibrary for Currency;
@@ -31,7 +32,7 @@ contract SrAmmIntializedEvent is Test, Deployers {
 
     int24 tickSpacing = 1;
 
-    function setUp() public {
+    function testHookInitializeEmitEvent() public {
         // creates the pool manager, utility routers, and test tokens
         Deployers.deployFreshManagerAndRouters();
         Deployers.deployMintAndApprove2Currencies();
@@ -52,6 +53,7 @@ contract SrAmmIntializedEvent is Test, Deployers {
         // Create the pool
         key = PoolKey(currency0, currency1, 100, tickSpacing, IHooks(hook));
         poolId = key.toId();
+        // TODO: check bid and offer tick is initialized
         vm.expectEmit(true, true, true, true, address(manager));
         emit IPoolManager.Initialize(
             key.toId(),
