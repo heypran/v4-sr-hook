@@ -31,15 +31,19 @@ contract SrAmmHookSlotTest is SrAmmUtils {
         );
 
         userSwapTransaction(10 ether, true, false, user);
+
         (, , , , Slot0 bid1, Slot0 offer1) = displayPoolLiq(key);
+
         assertEq(offer1.tick(), 0);
         assertEq(bid1.tick(), -20);
 
         userSwapTransaction(100 ether, true, false, user2);
+
         (, , , , Slot0 bid2, Slot0 offer2) = displayPoolLiq(key);
 
         assertEq(offer2.tick(), 0);
         assertEq(bid2.tick(), -219);
+
         assertEq(block.number, 1);
 
         vm.roll(block.number + 1);
@@ -49,17 +53,20 @@ contract SrAmmHookSlotTest is SrAmmUtils {
         (, , , , Slot0 bid3, Slot0 offer3) = displayPoolLiq(key);
 
         userSwapTransaction(20 ether, true, false, user3);
+
         assertLt(bid3.tick(), 0);
-        // assertGt(bid3.tick(), bid2.tick());
+
         uint256 userFinalAmount = userSellBackTheCurrency(10 ether, user, true);
         uint256 user2FinalAmount = userSellBackTheCurrency(
             100 ether,
             user2,
             true
         );
+
         userSwapTransaction(100 ether, true, false, user3);
-        displayPoolLiq(key);
+
         vm.roll(block.number + 1);
+
         assertEq(block.number, 3);
         displayPoolLiq(key);
         uint256 user3FinalAmount = userSellBackTheCurrency(
