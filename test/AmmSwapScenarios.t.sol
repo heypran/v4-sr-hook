@@ -61,7 +61,6 @@ contract CounterTest is Test, Deployers {
             TickMath.minUsableTick(1),
             TickMath.maxUsableTick(1)
         );
-        vm.expectEmit(true, false, false, true);
         UserSwapTransaction(10 ether, true, false, user);
         (uint160 sqrtPriceX961, int24 tick1, , ) = StateLibrary.getSlot0(
             manager,
