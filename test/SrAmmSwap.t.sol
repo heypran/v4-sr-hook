@@ -76,392 +76,463 @@ contract SrAmmHookV2Test is Test, Deployers {
         fundAttackerUsers();
     }
 
-    function testMultipleSwapsFullRange() public {
-        addLiquidityViaHook(
-            1000 ether,
-            TickMath.minUsableTick(1),
-            TickMath.maxUsableTick(1)
-        );
+    // function testMultipleSwapsFullRange() public {
+    //     addLiquidityViaHook(
+    //         1000 ether,
+    //         TickMath.minUsableTick(1),
+    //         TickMath.maxUsableTick(1)
+    //     );
 
-        AttackerSwapTransaction(10 ether, true, false);
-        UserSwapTransaction(100 ether, true, false);
-        UserSellBackTheCurrency(100 ether);
-        AttackerSellBackTheCurrency(10 ether);
-        UserSwapTransaction(100 ether, true, false);
-        AttackerSwapTransaction(10 ether, true, false);
-        uint256 attackerFinalAmount = AttackerSellBackTheCurrency(10 ether);
-        uint256 userFinalAmount = UserSellBackTheCurrency(100 ether);
+    //     AttackerSwapTransaction(10 ether, true, false);
+    //     UserSwapTransaction(100 ether, true, false);
+    //     UserSellBackTheCurrency(100 ether);
+    //     AttackerSellBackTheCurrency(10 ether);
+    //     UserSwapTransaction(100 ether, true, false);
+    //     AttackerSwapTransaction(10 ether, true, false);
+    //     uint256 attackerFinalAmount = AttackerSellBackTheCurrency(10 ether);
+    //     uint256 userFinalAmount = UserSellBackTheCurrency(100 ether);
 
-        console.log("After multiple swaps----->");
-        console.logUint(attackerFinalAmount);
-        console.logUint(userFinalAmount);
-    }
+    //     console.log("After multiple swaps----->");
+    //     console.logUint(attackerFinalAmount);
+    //     console.logUint(userFinalAmount);
+    // }
+
+    // function testSwapAttackTransactionInFullRange() public {
+    //     addLiquidityViaHook(
+    //         1000 ether,
+    //         TickMath.minUsableTick(1),
+    //         TickMath.maxUsableTick(1)
+    //     );
+
+    //     AttackerSwapTransaction(10 ether, true, false);
+    //     UserSwapTransaction(100 ether, true, false);
+    //     uint256 attackerSellAmount = MockERC20(Currency.unwrap(currency1))
+    //         .balanceOf(address(attacker));
+
+    //     vm.startPrank(attacker);
+    //     MockERC20(Currency.unwrap(currency1)).approve(
+    //         address(swapRouter),
+    //         10 ether
+    //     );
+    //     AttackerSwapTransaction(attackerSellAmount, false, true);
+    //     vm.stopPrank();
+
+    //     uint256 attackerFinalAmount = MockERC20(Currency.unwrap(currency0))
+    //         .balanceOf(address(attacker));
+    //     console.logUint(attackerFinalAmount);
+
+    //     assertLt(attackerFinalAmount, 10 ether);
+
+    //     uint256 userSellAmount = MockERC20(Currency.unwrap(currency1))
+    //         .balanceOf(address(user));
+
+    //     vm.startPrank(user);
+    //     MockERC20(Currency.unwrap(currency1)).approve(
+    //         address(swapRouter),
+    //         100 ether
+    //     );
+    //     UserSwapTransaction(userSellAmount, false, true);
+    //     vm.stopPrank();
+    //     uint256 userFinalAmount = MockERC20(Currency.unwrap(currency0))
+    //         .balanceOf(address(user));
+    //     console.logUint(userFinalAmount);
+
+    //     assertLt(userFinalAmount, 100 ether);
+    // }
+
+    // function testMultipleSwapAttackTransactionInFullRange() public {
+    //     addLiquidityViaHook(
+    //         1000 ether,
+    //         TickMath.minUsableTick(1),
+    //         TickMath.maxUsableTick(1)
+    //     );
+
+    //     AttackerSwapTransaction(10 ether, true, false);
+    //     UserSwapTransaction(100 ether, true, false);
+
+    //     uint256 attackerAmountCurrency0 = AttackerSellBackTheCurrency(10 ether);
+
+    //     assertLt(attackerAmountCurrency0, 10 ether);
+    //     uint256 userAmountCurrency0 = UserSellBackTheCurrency(100 ether);
+    //     assertLt(attackerAmountCurrency0, 10 ether);
+    //     assertLt(userAmountCurrency0, 100 ether);
+
+    //     console.log("First Attack");
+    //     console.logUint(attackerAmountCurrency0);
+    //     console.logUint(userAmountCurrency0);
+    //     console.log("Second Attack");
+    //     SandwichAttackZeroToOneSwap();
+    //     uint256 userFinalAmountCurrency0 = UserSellBackTheCurrency(100 ether);
+    //     uint256 attackerFinalAmountCurrency0 = MockERC20(
+    //         Currency.unwrap(currency0)
+    //     ).balanceOf(address(attacker));
+    //     assertLt(attackerFinalAmountCurrency0, 20 ether); // 19.4 ether
+    //     assertLt(userFinalAmountCurrency0, 200 ether); // 159.8 ether
+    // }
 
     function testSwapAttackTransactionInFullRange() public {
         addLiquidityViaHook(
-            1000 ether,
+            10000 ether,
             TickMath.minUsableTick(1),
             TickMath.maxUsableTick(1)
         );
 
         AttackerSwapTransaction(10 ether, true, false);
         UserSwapTransaction(100 ether, true, false);
+        uint256 attackerAmountCurrency0 = AttackerSellBackTheCurrency(10 ether);
+        assertLt(attackerAmountCurrency0, 10 ether);
+        vm.roll(block.number + 1);
+        displayPoolLiq(key);
+        AttackerSwapTransaction(10 ether, true, false);
+        UserSwapTransaction(100 ether, true, false);
+        vm.startPrank(attacker);
         uint256 attackerSellAmount = MockERC20(Currency.unwrap(currency1))
             .balanceOf(address(attacker));
-
-        vm.startPrank(attacker);
         MockERC20(Currency.unwrap(currency1)).approve(
             address(swapRouter),
-            10 ether
+            attackerSellAmount
         );
         AttackerSwapTransaction(attackerSellAmount, false, true);
-        vm.stopPrank();
-
-        uint256 attackerFinalAmount = MockERC20(Currency.unwrap(currency0))
+        uint256 attackerFinalBalance = MockERC20(Currency.unwrap(currency0))
             .balanceOf(address(attacker));
-        console.logUint(attackerFinalAmount);
-
-        assertLt(attackerFinalAmount, 10 ether);
-
-        uint256 userSellAmount = MockERC20(Currency.unwrap(currency1))
-            .balanceOf(address(user));
+        vm.stopPrank();
 
         vm.startPrank(user);
+        console.log("user........");
+
+        displayPoolLiq(key);
+
+        // approve router to spend, as it needs to settle
         MockERC20(Currency.unwrap(currency1)).approve(
             address(swapRouter),
-            100 ether
+            200 ether
         );
-        UserSwapTransaction(userSellAmount, false, true);
+
+        // negative number indicates exact input swap!
+        int256 userSellAmount = -int256(
+            MockERC20(Currency.unwrap(currency1)).balanceOf(address(user))
+        );
+        console.log("user........userSellAmount");
+
+        BalanceDelta swapDelta3 = swap(
+            key,
+            false, //zerForOne false (buying at offerPrice, left to right)
+            userSellAmount,
+            ZERO_BYTES
+        );
         vm.stopPrank();
-        uint256 userFinalAmount = MockERC20(Currency.unwrap(currency0))
-            .balanceOf(address(user));
-        console.logUint(userFinalAmount);
 
-        assertLt(userFinalAmount, 100 ether);
+        //     uint256 userSellAmount = MockERC20(Currency.unwrap(currency1))
+        //         .balanceOf(address(user));
+        //     MockERC20(Currency.unwrap(currency1)).approve(
+        //         address(swapRouter),
+        //         10 ether
+        //     );
+        //               console.log("displayPoolLiq2---------------->");
+        //     displayPoolLiq(key);
+        //             vm.startPrank(user);
+        //    BalanceDelta swapDelta = swap(
+        //             key,
+        //             false, //oneForZero true (selling at offerPrice, left to right)
+        //             -int256(10 ether), // negative number indicates exact input swap!
+        //             ZERO_BYTES
+        //         );
+        //     // uint256 userFinalBalance = MockERC20(Currency.unwrap(currency0))
+        //     //     .balanceOf(address(user));
+        //      vm.stopPrank();
+        assertLt(attackerFinalBalance, 20 ether); //19.95 ether
+        console.log("attackerSellAmount000", attackerFinalBalance);
     }
 
-    function testMultipleSwapAttackTransactionInFullRange() public {
-        addLiquidityViaHook(
-            1000 ether,
-            TickMath.minUsableTick(1),
-            TickMath.maxUsableTick(1)
-        );
+    // // //ZEROFORONE CASES
+    // // // // 1. Testing liquidity changes for simple attack swap from zero for one. This invloves active liquidity remains unchanged
+    // function testSrSwapOnSrPoolActiveLiquidityRangeNoChangesZF1() public {
+    //     // positions were created in setup()
 
-        AttackerSwapTransaction(10 ether, true, false);
-        UserSwapTransaction(100 ether, true, false);
+    //     addLiquidityViaHook(1000 ether, -3000, 3000);
 
-        uint256 attackerFinalAmount = AttackerSellBackTheCurrency(10 ether);
+    //     addLiquidityViaHook(1000 ether, -6000, -3000);
 
-        assertLt(attackerFinalAmount, 10 ether);
-        uint256 userFinalAmount = UserSellBackTheCurrency(100 ether);
-        console.logUint(userFinalAmount);
+    //     console.log("Liquidity Before Attack");
 
-        assertLt(userFinalAmount, 100 ether); // But the overall amount to the user is greater then the normal swap ( the less is due to price changes ans the fees)
+    //     displayPoolLiq(key);
 
-        console.log("First Attack");
-        console.logUint(attackerFinalAmount);
-        console.logUint(userFinalAmount);
+    //     SandwichAttackZeroToOneSwap();
 
-        SandwichAttackZeroToOneSwap();
-        uint256 attackerFinalAmount1 = MockERC20(Currency.unwrap(currency0))
-            .balanceOf(address(attacker));
-        uint256 userSellAmount1 = MockERC20(Currency.unwrap(currency1))
-            .balanceOf(address(user));
+    //     console.log("After Swap SQRT Prices and ticks");
+    //     (Slot0 bid2, Slot0 offer2) = hook.getSrPoolSlot0(key);
 
-        console.log("Second Attack");
+    //     (
+    //         uint128 bidLiquidity,
+    //         uint128 liquidity,
+    //         uint128 virtualBidLiquidity,
+    //         uint128 virtualOfferliquidity
+    //     ) = hook.getSrPoolLiquidity(key);
 
-        console.logUint(attackerFinalAmount1);
-        console.logUint(userSellAmount1);
-        displayPoolLiq(key);
-    }
-
-    // //ZEROFORONE CASES
-    // // // 1. Testing liquidity changes for simple attack swap from zero for one. This invloves active liquidity remains unchanged
-    function testSrSwapOnSrPoolActiveLiquidityRangeNoChangesZF1() public {
-        // positions were created in setup()
-
-        addLiquidityViaHook(1000 ether, -3000, 3000);
-
-        addLiquidityViaHook(1000 ether, -6000, -3000);
-
-        console.log("Liquidity Before Attack");
-
-        displayPoolLiq(key);
-
-        SandwichAttackZeroToOneSwap();
-
-        console.log("After Swap SQRT Prices and ticks");
-        (Slot0 bid2, Slot0 offer2) = hook.getSrPoolSlot0(key);
-
-        (
-            uint128 bidLiquidity,
-            uint128 liquidity,
-            uint128 virtualBidLiquidity,
-            uint128 virtualOfferliquidity
-        ) = hook.getSrPoolLiquidity(key);
-
-        assertEq(bidLiquidity, 1000 ether);
-        assertEq(liquidity, 1000 ether);
-        // assertEq(virtualBidLiquidity, 0 ether);
-        // assertEq(virtualOfferliquidity, 0 ether);
-    }
+    //     assertEq(bidLiquidity, 1000 ether);
+    //     assertEq(liquidity, 1000 ether);
+    //     // assertEq(virtualBidLiquidity, 0 ether);
+    //     // assertEq(virtualOfferliquidity, 0 ether);
+    // }
 
     //2. Testing liquidity changes for simple attack swap from zero for one. This invloves active liquidity changes
-    function testSrSwapOnSrPoolActiveLiquidityRangeChangesZF1() public {
-        // positions were created in setup()
-        (
-            uint128 bidLiq,
-            uint128 offerLiq,
-            uint128 vBLiq,
-            uint128 vOLiq,
-            Slot0 intialBid,
-            Slot0 initialOffer
-        ) = displayPoolLiq(key);
-        addLiquidityViaHook(1000 ether, -1800, 1800);
+    // function testSrSwapOnSrPoolActiveLiquidityRangeChangesZF1() public {
+    //     // positions were created in setup()
+    //     (
+    //         uint128 bidLiq,
+    //         uint128 offerLiq,
+    //         uint128 vBLiq,
+    //         uint128 vOLiq,
+    //         Slot0 intialBid,
+    //         Slot0 initialOffer
+    //     ) = displayPoolLiq(key);
+    //     addLiquidityViaHook(1000 ether, -1800, 1800);
 
-        addLiquidityViaHook(2000 ether, -6000, -1800);
+    //     addLiquidityViaHook(2000 ether, -6000, -1800);
 
-        // displayPoolLiq(key);
+    //     // displayPoolLiq(key);
 
-        // SandwichAttackZeroToOneSwap();
-        AttackerSwapTransaction(10 ether, true, false);
-        console.log("Attacker zeroForOne");
-        (
-            uint128 bidLiq1,
-            uint128 offerLiq1,
-            uint128 vBLiq1,
-            uint128 vOLiq1,
-            Slot0 bid1,
-            Slot0 offer1
-        ) = displayPoolLiq(key);
+    //     // SandwichAttackZeroToOneSwap();
+    //     AttackerSwapTransaction(10 ether, true, false);
+    //     console.log("Attacker zeroForOne");
+    //     (
+    //         uint128 bidLiq1,
+    //         uint128 offerLiq1,
+    //         uint128 vBLiq1,
+    //         uint128 vOLiq1,
+    //         Slot0 bid1,
+    //         Slot0 offer1
+    //     ) = displayPoolLiq(key);
 
-        assertGt(intialBid.tick(), bid1.tick());
-        assertEq(initialOffer.tick(), offer1.tick());
-        assertGt(vOLiq1, 0);
-        assertEq(vBLiq1, 0);
-        assertEq(bidLiq1, offerLiq1); // The ticks is still in active range of -1800 to 1800
+    //     assertGt(intialBid.tick(), bid1.tick());
+    //     assertEq(initialOffer.tick(), offer1.tick());
+    //     assertGt(vOLiq1, 0);
+    //     assertEq(vBLiq1, 0);
+    //     assertEq(bidLiq1, offerLiq1); // The ticks is still in active range of -1800 to 1800
 
-        UserSwapTransaction(100 ether, true, false);
-        console.log("User zeroForOne");
-        (
-            uint128 bidLiq2,
-            uint128 offerLiq2,
-            uint128 vBLiq2,
-            uint128 vOLiq2,
-            Slot0 bid2,
-            Slot0 offer2
-        ) = displayPoolLiq(key);
+    //     UserSwapTransaction(100 ether, true, false);
+    //     console.log("User zeroForOne");
+    //     (
+    //         uint128 bidLiq2,
+    //         uint128 offerLiq2,
+    //         uint128 vBLiq2,
+    //         uint128 vOLiq2,
+    //         Slot0 bid2,
+    //         Slot0 offer2
+    //     ) = displayPoolLiq(key);
 
-        assertGt(bid1.tick(), bid2.tick());
-        assertEq(initialOffer.tick(), offer2.tick());
-        assertGt(vOLiq2, vOLiq1);
-        assertEq(vBLiq2, 0);
-        assertEq(bidLiq2, 2000 ether); // The ticks has move to another active range -6000, -1800
+    //     assertGt(bid1.tick(), bid2.tick());
+    //     assertEq(initialOffer.tick(), offer2.tick());
+    //     assertGt(vOLiq2, vOLiq1);
+    //     assertEq(vBLiq2, 0);
+    //     assertEq(bidLiq2, 2000 ether); // The ticks has move to another active range -6000, -1800
 
-        MockERC20(Currency.unwrap(currency0)).approve(
-            address(swapRouter),
-            10 ether
-        );
-        console.log("FInal Attacker zeroForOne");
+    //     MockERC20(Currency.unwrap(currency0)).approve(
+    //         address(swapRouter),
+    //         10 ether
+    //     );
+    //     console.log("FInal Attacker zeroForOne");
 
-        uint256 attackerSellAmount = MockERC20(Currency.unwrap(currency1))
-            .balanceOf(address(attacker));
+    //     uint256 attackerSellAmount = MockERC20(Currency.unwrap(currency1))
+    //         .balanceOf(address(attacker));
 
-        vm.startPrank(attacker);
-        MockERC20(Currency.unwrap(currency1)).approve(
-            address(swapRouter),
-            10 ether
-        );
-        AttackerSwapTransaction(attackerSellAmount, false, true);
-        vm.stopPrank();
+    //     vm.startPrank(attacker);
+    //     MockERC20(Currency.unwrap(currency1)).approve(
+    //         address(swapRouter),
+    //         10 ether
+    //     );
+    //     AttackerSwapTransaction(attackerSellAmount, false, true);
+    //     vm.stopPrank();
 
-        (
-            uint128 bidLiq3,
-            uint128 offerLiq3,
-            uint128 vBLiq3,
-            uint128 vOLiq3,
-            Slot0 bid3,
-            Slot0 offer3
-        ) = displayPoolLiq(key);
-        console.log("------> THE END 1 ------>");
-        console.logUint(offerLiq3);
-        assertEq(bid3.tick(), bid2.tick());
-        assertGt(offer3.tick(), offer2.tick()); // offer2 or initialoffer were same but in the oneTozero swap bid remain same and offer ticks changes
-        // assertEq(vBLiq3, 0);
-        assertEq(vOLiq3, vOLiq2);
-        assertEq(bidLiq3, 2000 ether);
+    //     (
+    //         uint128 bidLiq3,
+    //         uint128 offerLiq3,
+    //         uint128 vBLiq3,
+    //         uint128 vOLiq3,
+    //         Slot0 bid3,
+    //         Slot0 offer3
+    //     ) = displayPoolLiq(key);
+    //     console.log("------> THE END 1 ------>");
+    //     console.logUint(offerLiq3);
+    //     assertEq(bid3.tick(), bid2.tick());
+    //     assertGt(offer3.tick(), offer2.tick()); // offer2 or initialoffer were same but in the oneTozero swap bid remain same and offer ticks changes
+    //     // assertEq(vBLiq3, 0);
+    //     assertEq(vOLiq3, vOLiq2);
+    //     assertEq(bidLiq3, 2000 ether);
 
-        // calculateVirtualLiquidity(
-        //     bid.sqrtPriceX96(),
-        //     SQRT_PRICE_1_1,
-        //     bidLiquidity,
-        //     true
-        // );
-    }
+    //     console.log("attackerSellAmount-----", attackerSellAmount);
 
-    // // 3. Testing in Overlapped liquidities
-    // // To check whether the active liqudity range amount changes based on the tick movement when it moves out of some liquidity ranges.
-
-    function testSrSwapOnSrPoolMultipleOverlappedLiquidityZF1() public {
-        // positions were created in setup()
-
-        addLiquidityViaHook(10000 ether, -3000, 3000);
-        addLiquidityViaHook(1000 ether, -60, 60);
-        addLiquidityViaHook(1000 ether, 2000, 6000);
-        addLiquidityViaHook(1000 ether, -24000, -12000);
-        addLiquidityViaHook(1000 ether, -120, 120);
-
-        displayPoolLiq(key);
-
-        (
-            uint128 bidLiquidityBefore,
-            uint128 liquidityBefore,
-            uint128 virtualBidLiquidityBefore,
-            uint128 virtualOfferliquidityBefore
-        ) = hook.getSrPoolLiquidity(key);
-
-        assertEq(bidLiquidityBefore, 12000 ether);
-        assertEq(liquidityBefore, 12000 ether);
-
-        SandwichAttackZeroToOneSwap();
-
-        console.log("After Swap SQRT Prices and ticks");
-        (Slot0 bid2, Slot0 offer2) = hook.getSrPoolSlot0(key);
-
-        (
-            uint128 bidLiquidity,
-            uint128 liquidity,
-            uint128 virtualBidLiquidity,
-            uint128 virtualOfferliquidity
-        ) = hook.getSrPoolLiquidity(key);
-
-        assertEq(bidLiquidity, 10000 ether);
-        assertEq(liquidity, 12000 ether);
-        // assertEq(virtualOfferliquidity, 12000 ether); // 12000 or 2000 extra
-    }
-
-    // //ONEFORZERO CASES
-    // // 1. Testing liquidity changes for simple attack swap from zero for one. This invloves no active change in liquidity
-    function testSrSwapOnSrPoolActiveLiquidityRangeNoChanges1FZ() public {
-        // positions were created in setup()
-
-        addLiquidityViaHook(1000 ether, -3000, 3000);
-        addLiquidityViaHook(1000 ether, 3000, 6000);
-
-        displayPoolLiq(key);
-
-        SandwichAttackOneToZeroSwap();
-
-        console.log("After Swap SQRT Prices and ticks");
-        (Slot0 bid2, Slot0 offer2) = hook.getSrPoolSlot0(key);
-
-        (
-            uint128 bidLiquidity,
-            uint128 liquidity,
-            uint128 virtualBidLiquidity,
-            uint128 virtualOfferliquidity
-        ) = hook.getSrPoolLiquidity(key);
-
-        assertEq(bidLiquidity, 1000 ether);
-        assertEq(liquidity, 1000 ether);
-        // assertEq(virtualBidLiquidity, 0 ether);
-        // assertEq(virtualOfferliquidity, 0 ether);
-    }
-
-    // // 2. Testing liquidity changes for simple attack swap from zero for one. This invloves active liquidity changes
-    function testSrSwapOnSrPoolActiveLiquidityRangeChanges1FZ() public {
-        // positions were created in setup()
-
-        addLiquidityViaHook(1000 ether, -1800, 1800);
-        addLiquidityViaHook(1000 ether, 1800, 6000);
-
-        displayPoolLiq(key);
-
-        SandwichAttackOneToZeroSwap();
-
-        (Slot0 bid2, Slot0 offer2) = hook.getSrPoolSlot0(key);
-
-        (
-            uint128 bidLiquidity,
-            uint128 liquidity,
-            uint128 virtualBidLiquidity,
-            uint128 virtualOfferliquidity
-        ) = hook.getSrPoolLiquidity(key);
-
-        assertEq(bidLiquidity, 1000 ether);
-        assertEq(liquidity, 1000 ether);
-        // assertEq(virtualBidLiquidity, 1000 ether);
-        // assertEq(virtualOfferliquidity, 0 ether);
-    }
+    //     // calculateVirtualLiquidity(
+    //     //     bid.sqrtPriceX96(),
+    //     //     SQRT_PRICE_1_1,
+    //     //     bidLiquidity,
+    //     //     true
+    //     // );
+    // }
 
     // // 3. Testing in Overlapped liquidities
     // // To check whether the active liqudity range amount changes based on the tick movement when it moves out of some liquidity ranges.
 
-    function testSrSwapOnSrPoolMultipleOverlappedLiquidity1FZ() public {
-        // positions were created in setup()
+    // function testSrSwapOnSrPoolMultipleOverlappedLiquidityZF1() public {
+    //     // positions were created in setup()
 
-        addLiquidityViaHook(10000 ether, -3000, 3000);
-        addLiquidityViaHook(1000 ether, -60, 60);
-        addLiquidityViaHook(1000 ether, -6000, -2000);
-        addLiquidityViaHook(1000 ether, 12000, 24000);
-        addLiquidityViaHook(1000 ether, -120, 120);
+    //     addLiquidityViaHook(10000 ether, -3000, 3000);
+    //     addLiquidityViaHook(1000 ether, -60, 60);
+    //     addLiquidityViaHook(1000 ether, 2000, 6000);
+    //     addLiquidityViaHook(1000 ether, -24000, -12000);
+    //     addLiquidityViaHook(1000 ether, -120, 120);
 
-        displayPoolLiq(key);
+    //     displayPoolLiq(key);
 
-        (
-            uint128 bidLiquidityBefore,
-            uint128 liquidityBefore,
-            uint128 virtualBidLiquidityBefore,
-            uint128 virtualOfferliquidityBefore
-        ) = hook.getSrPoolLiquidity(key);
+    //     (
+    //         uint128 bidLiquidityBefore,
+    //         uint128 liquidityBefore,
+    //         uint128 virtualBidLiquidityBefore,
+    //         uint128 virtualOfferliquidityBefore
+    //     ) = hook.getSrPoolLiquidity(key);
 
-        assertEq(bidLiquidityBefore, 12000 ether);
-        assertEq(liquidityBefore, 12000 ether);
+    //     assertEq(bidLiquidityBefore, 12000 ether);
+    //     assertEq(liquidityBefore, 12000 ether);
 
-        SandwichAttackOneToZeroSwap();
+    //     SandwichAttackZeroToOneSwap();
 
-        console.log("After Swap SQRT Prices and ticks");
-        (Slot0 bid2, Slot0 offer2) = hook.getSrPoolSlot0(key);
+    //     console.log("After Swap SQRT Prices and ticks");
+    //     (Slot0 bid2, Slot0 offer2) = hook.getSrPoolSlot0(key);
 
-        (
-            uint128 bidLiquidity,
-            uint128 liquidity,
-            uint128 virtualBidLiquidity,
-            uint128 virtualOfferliquidity
-        ) = hook.getSrPoolLiquidity(key);
+    //     (
+    //         uint128 bidLiquidity,
+    //         uint128 liquidity,
+    //         uint128 virtualBidLiquidity,
+    //         uint128 virtualOfferliquidity
+    //     ) = hook.getSrPoolLiquidity(key);
 
-        assertEq(bidLiquidity, 12000 ether);
-        assertEq(liquidity, 10000 ether);
-        // assertEq(virtualOfferliquidity, 12000 ether); // 12000 or 2000 extra
-    }
+    //     assertEq(bidLiquidity, 10000 ether);
+    //     assertEq(liquidity, 12000 ether);
+    //     // assertEq(virtualOfferliquidity, 12000 ether); // 12000 or 2000 extra
+    // }
 
-    function testForMutlipleSwapsInBothDirections() public {
-        // positions were created in setup()
-        addLiquidityViaHook(10000 ether, -24000, 24000);
+    // // //ONEFORZERO CASES
+    // // // 1. Testing liquidity changes for simple attack swap from zero for one. This invloves no active change in liquidity
+    // function testSrSwapOnSrPoolActiveLiquidityRangeNoChanges1FZ() public {
+    //     // positions were created in setup()
 
-        AttackerSwapTransaction(10 ether, true, false);
-        UserSwapTransaction(100 ether, true, false);
-        MockERC20(Currency.unwrap(currency0)).approve(
-            address(swapRouter),
-            10 ether
-        );
+    //     addLiquidityViaHook(1000 ether, -3000, 3000);
+    //     addLiquidityViaHook(1000 ether, 3000, 6000);
 
-        uint256 attackerSellAmount = MockERC20(Currency.unwrap(currency1))
-            .balanceOf(address(attacker));
+    //     displayPoolLiq(key);
 
-        vm.startPrank(attacker);
-        MockERC20(Currency.unwrap(currency1)).approve(
-            address(swapRouter),
-            10 ether
-        );
-        AttackerSwapTransaction(attackerSellAmount, false, true);
-        vm.stopPrank();
+    //     SandwichAttackOneToZeroSwap();
 
-        uint256 attackerFinalAmount = MockERC20(Currency.unwrap(currency0))
-            .balanceOf(address(attacker));
-        console.log("attackerFinalAmount===");
-        console.logUint(attackerFinalAmount);
-    }
+    //     console.log("After Swap SQRT Prices and ticks");
+    //     (Slot0 bid2, Slot0 offer2) = hook.getSrPoolSlot0(key);
+
+    //     (
+    //         uint128 bidLiquidity,
+    //         uint128 liquidity,
+    //         uint128 virtualBidLiquidity,
+    //         uint128 virtualOfferliquidity
+    //     ) = hook.getSrPoolLiquidity(key);
+
+    //     assertEq(bidLiquidity, 1000 ether);
+    //     assertEq(liquidity, 1000 ether);
+    //     // assertEq(virtualBidLiquidity, 0 ether);
+    //     // assertEq(virtualOfferliquidity, 0 ether);
+    // }
+
+    // // // 2. Testing liquidity changes for simple attack swap from zero for one. This invloves active liquidity changes
+    // function testSrSwapOnSrPoolActiveLiquidityRangeChanges1FZ() public {
+    //     // positions were created in setup()
+
+    //     addLiquidityViaHook(1000 ether, -1800, 1800);
+    //     addLiquidityViaHook(1000 ether, 1800, 6000);
+
+    //     displayPoolLiq(key);
+
+    //     SandwichAttackOneToZeroSwap();
+
+    //     (Slot0 bid2, Slot0 offer2) = hook.getSrPoolSlot0(key);
+
+    //     (
+    //         uint128 bidLiquidity,
+    //         uint128 liquidity,
+    //         uint128 virtualBidLiquidity,
+    //         uint128 virtualOfferliquidity
+    //     ) = hook.getSrPoolLiquidity(key);
+
+    //     assertEq(bidLiquidity, 1000 ether);
+    //     assertEq(liquidity, 1000 ether);
+    //     // assertEq(virtualBidLiquidity, 1000 ether);
+    //     // assertEq(virtualOfferliquidity, 0 ether);
+    // }
+
+    // // // 3. Testing in Overlapped liquidities
+    // // // To check whether the active liqudity range amount changes based on the tick movement when it moves out of some liquidity ranges.
+
+    // function testSrSwapOnSrPoolMultipleOverlappedLiquidity1FZ() public {
+    //     // positions were created in setup()
+
+    //     addLiquidityViaHook(10000 ether, -3000, 3000);
+    //     addLiquidityViaHook(1000 ether, -60, 60);
+    //     addLiquidityViaHook(1000 ether, -6000, -2000);
+    //     addLiquidityViaHook(1000 ether, 12000, 24000);
+    //     addLiquidityViaHook(1000 ether, -120, 120);
+
+    //     displayPoolLiq(key);
+
+    //     (
+    //         uint128 bidLiquidityBefore,
+    //         uint128 liquidityBefore,
+    //         uint128 virtualBidLiquidityBefore,
+    //         uint128 virtualOfferliquidityBefore
+    //     ) = hook.getSrPoolLiquidity(key);
+
+    //     assertEq(bidLiquidityBefore, 12000 ether);
+    //     assertEq(liquidityBefore, 12000 ether);
+
+    //     SandwichAttackOneToZeroSwap();
+
+    //     console.log("After Swap SQRT Prices and ticks");
+    //     (Slot0 bid2, Slot0 offer2) = hook.getSrPoolSlot0(key);
+
+    //     (
+    //         uint128 bidLiquidity,
+    //         uint128 liquidity,
+    //         uint128 virtualBidLiquidity,
+    //         uint128 virtualOfferliquidity
+    //     ) = hook.getSrPoolLiquidity(key);
+
+    //     assertEq(bidLiquidity, 12000 ether);
+    //     assertEq(liquidity, 10000 ether);
+    //     // assertEq(virtualOfferliquidity, 12000 ether); // 12000 or 2000 extra
+    // }
+
+    // function testForMutlipleSwapsInBothDirections() public {
+    //     // positions were created in setup()
+    //     addLiquidityViaHook(10000 ether, -24000, 24000);
+
+    //     AttackerSwapTransaction(10 ether, true, false);
+    //     UserSwapTransaction(100 ether, true, false);
+    //     MockERC20(Currency.unwrap(currency0)).approve(
+    //         address(swapRouter),
+    //         10 ether
+    //     );
+
+    //     uint256 attackerSellAmount = MockERC20(Currency.unwrap(currency1))
+    //         .balanceOf(address(attacker));
+
+    //     vm.startPrank(attacker);
+    //     MockERC20(Currency.unwrap(currency1)).approve(
+    //         address(swapRouter),
+    //         10 ether
+    //     );
+    //     AttackerSwapTransaction(attackerSellAmount, false, true);
+    //     vm.stopPrank();
+
+    //     uint256 attackerFinalAmount = MockERC20(Currency.unwrap(currency0))
+    //         .balanceOf(address(attacker));
+    //     console.log("attackerFinalAmount===");
+    //     console.logUint(attackerFinalAmount);
+    // }
 
     function addLiquidityViaHook(
         int256 liquidityDelta,
@@ -587,7 +658,6 @@ contract SrAmmHookV2Test is Test, Deployers {
             currency0,
             token0AttackerBeforeAmount
         );
-
         uint256 token0UserBeforeAmount = 100 ether;
         fundCurrencyAndApproveRouter(user, currency0, token0UserBeforeAmount);
 

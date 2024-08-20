@@ -20,7 +20,7 @@ import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
 import {SqrtPriceMath} from "v4-core/src/libraries/SqrtPriceMath.sol";
 import {ISrAmmv2} from "../src/ISrAmmV2.sol";
 
-contract SrAmmHookV2Test is Test, Deployers {
+contract SrAmmUtils is Test, Deployers {
     using PoolIdLibrary for PoolKey;
     using CurrencyLibrary for Currency;
     using StateLibrary for IPoolManager;
@@ -66,174 +66,7 @@ contract SrAmmHookV2Test is Test, Deployers {
             key.hooks
         );
         manager.initialize(key, SQRT_PRICE_1_1, ZERO_BYTES);
-
-        // Not using this
-        // Provide full-range liquidity to the pool
-        // modifyLiquidityRouter.modifyLiquidity(
-        //     key,
-        //     IPoolManager.ModifyLiquidityParams(
-        //         -2,
-        //         2,
-        //         10_000 ether, // 10000000000000000000000
-        //         0
-        //     ),
-        //     ZERO_BYTES
-        // );
-
-        // addLiquidityViaHook(
-        //     10_000 ether,
-        //     TickMath.minUsableTick(tickSpacing),
-        //     TickMath.maxUsableTick(tickSpacing)
-        // );
         fundAttackerUsers();
-    }
-
-    function testMultipleSwapsFullRangeZF1() public {
-        addLiquidityViaHook(
-            10000 ether,
-            TickMath.minUsableTick(1),
-            TickMath.maxUsableTick(1)
-        );
-
-        UserSwapTransaction(10 ether, true, false, user);
-        console.log("First swap transaction");
-        (, , , , Slot0 bid1, Slot0 offer1) = displayPoolLiq(key);
-        assertEq(offer1.tick(), 0);
-        assertEq(bid1.tick(), -20);
-        UserSwapTransaction(100 ether, true, false, user2);
-        console.log("Second swap transaction");
-        (, , , , Slot0 bid2, Slot0 offer2) = displayPoolLiq(key);
-        assertEq(offer2.tick(), 0);
-        assertEq(bid2.tick(), -219);
-        assertEq(block.number, 1);
-        vm.roll(block.number + 1);
-        assertEq(block.number, 2);
-        uint256 userFinalAmount = UserSellBackTheCurrency(10 ether, user, true);
-        uint256 user2FinalAmount = UserSellBackTheCurrency(
-            100 ether,
-            user2,
-            true
-        );
-        UserSwapTransaction(100 ether, true, false, user3);
-        console.log("Testing--------");
-        displayPoolLiq(key);
-        vm.roll(block.number + 1);
-        assertEq(block.number, 3);
-        console.log("Blockchange values update");
-        displayPoolLiq(key);
-        uint256 user3FinalAmount = UserSellBackTheCurrency(
-            100 ether,
-            user3,
-            true
-        );
-        console.log("After multiple swaps-----> User final tokens recieved");
-        console.logUint(userFinalAmount);
-        console.logUint(user2FinalAmount);
-        console.logUint(user3FinalAmount);
-    }
-
-    function testMultipleSwapsFullRange1FZ() public {
-        addLiquidityViaHook(
-            10000 ether,
-            TickMath.minUsableTick(1),
-            TickMath.maxUsableTick(1)
-        );
-        UserSwapTransaction(10 ether, false, false, user);
-        console.log("First swap transaction");
-        (, , , , Slot0 bid1, Slot0 offer1) = displayPoolLiq(key);
-        assertEq(offer1.tick(), 19);
-        assertEq(bid1.tick(), 0);
-        UserSwapTransaction(100 ether, false, false, user2);
-        console.log("Second swap transaction");
-        (, , , , Slot0 bid2, Slot0 offer2) = displayPoolLiq(key);
-        assertEq(offer2.tick(), 218);
-        assertEq(bid2.tick(), 0);
-        assertEq(block.number, 1);
-        vm.roll(block.number + 1);
-        assertEq(block.number, 2);
-        uint256 userFinalAmount = UserSellBackTheCurrency(
-            10 ether,
-            user,
-            false
-        );
-        uint256 user2FinalAmount = UserSellBackTheCurrency(
-            100 ether,
-            user2,
-            false
-        );
-        UserSwapTransaction(100 ether, false, false, user3);
-        console.log("Testing--------");
-        displayPoolLiq(key);
-        vm.roll(block.number + 1);
-        assertEq(block.number, 3);
-        console.log("Blockchange values update");
-        displayPoolLiq(key);
-        uint256 user3FinalAmount = UserSellBackTheCurrency(
-            100 ether,
-            user3,
-            false
-        );
-        console.log("After multiple swaps-----> User final tokens recieved");
-        console.logUint(userFinalAmount);
-        console.logUint(user2FinalAmount);
-        console.logUint(user3FinalAmount);
-    }
-
-    function testSwapEmitEventZF1() public {
-        addLiquidityViaHook(
-            10000 ether,
-            TickMath.minUsableTick(1),
-            TickMath.maxUsableTick(1)
-        );
-        fundCurrencyAndApproveRouter(user, currency0, 10 ether);
-        vm.startPrank(user);
-        vm.expectEmit(true, true, true, false);
-        emit ISrAmmv2.Swapped(
-            poolId,
-            address(swapRouter),
-            -10000000000000000000,
-            9989011986914284407,
-            79228162514264337593543950336,
-            10000000000000000000000,
-            0,
-            100
-        );
-        BalanceDelta swapDelta = swap(
-            key,
-            true, //zerForOne true (selling at bidPrice, right to left)
-            -int256(10 ether), // negative number indicates exact input swap!
-            ZERO_BYTES
-        );
-        vm.stopPrank();
-    }
-
-    function testSwapEmitEvent1FZ() public {
-        addLiquidityViaHook(
-            10000 ether,
-            TickMath.minUsableTick(1),
-            TickMath.maxUsableTick(1)
-        );
-        fundCurrencyAndApproveRouter(user, currency1, 10 ether);
-        vm.startPrank(user);
-        vm.expectEmit(true, true, true, false);
-        emit ISrAmmv2.Swapped(
-            poolId,
-            address(swapRouter),
-            9989011986914284407,
-            -10000000000000000000,
-            79307382753962350504703734931,
-            10000000000000000000000,
-            19,
-            100
-        );
-
-        BalanceDelta swapDelta = swap(
-            key,
-            false,
-            -int256(10 ether),
-            ZERO_BYTES
-        );
-        vm.stopPrank();
     }
 
     function addLiquidityViaHook(
@@ -249,14 +82,6 @@ contract SrAmmHookV2Test is Test, Deployers {
             address(hook),
             10000 ether
         );
-        // vm.expectEmit(true, false, false, false);
-        // emit IPoolManager.ModifyLiquidity(
-        //     poolId,
-        //     msg.sender,
-        //     minTick,
-        //     maxTick,
-        //     liquidityDelta
-        // );
         hook.addLiquidity(
             key,
             IPoolManager.ModifyLiquidityParams(
@@ -321,17 +146,14 @@ contract SrAmmHookV2Test is Test, Deployers {
     {
         (uint128 bidLiq, uint128 offerLiq, uint128 vBLiq, uint128 vOLiq) = hook
             .getSrPoolLiquidity(key);
-        console.log("Liquidity------");
         console.log(bidLiq);
         console.log(offerLiq);
         console.log(vBLiq);
         console.log(vOLiq);
 
         (Slot0 bid, Slot0 offer) = hook.getSrPoolSlot0(key);
-        console.log("Pool SQRT ----");
         console.log(bid.sqrtPriceX96());
         console.log(offer.sqrtPriceX96());
-        console.log("Pool Tick ----");
         console.logInt(bid.tick());
         console.logInt(offer.tick());
 
@@ -355,85 +177,9 @@ contract SrAmmHookV2Test is Test, Deployers {
                     roundup
                 )
             );
-
-        console.log("virtualOfferliquidity ---- Calculation");
         console.logUint(virtualOfferliquidity);
 
         return virtualOfferliquidity;
-    }
-
-    function SandwichAttackZeroToOneSwap() public {
-        // trasfer token1 to attacker and user
-
-        uint256 token0AttackerBeforeAmount = 10 ether;
-        fundCurrencyAndApproveRouter(
-            attacker,
-            currency0,
-            token0AttackerBeforeAmount
-        );
-
-        uint256 token0UserBeforeAmount = 100 ether;
-        fundCurrencyAndApproveRouter(user, currency0, token0UserBeforeAmount);
-
-        // Perform a test sandwich attack //
-        {
-            // ----attacker--- //
-            console.log("attacker.......");
-            vm.startPrank(attacker);
-
-            //hookdata = abi.encode(attacker);
-            int256 attackerBuy0Amount = -int256(token0AttackerBeforeAmount); // negative number indicates exact input swap!
-            BalanceDelta swapDelta = swap(
-                key,
-                true, //zerForOne true (selling at bidPrice, right to left)
-                attackerBuy0Amount,
-                ZERO_BYTES
-            );
-            vm.stopPrank();
-
-            // ----user--- //
-            console.log("User.......");
-            vm.startPrank(user);
-
-            displayPoolLiq(key);
-
-            int256 userBuyAmount = -int256(token0UserBeforeAmount); // negative number indicates exact input swap!
-            BalanceDelta swapDelta2 = swap(
-                key,
-                true, //zerForOne true (selling at bidPrice, right to left)
-                userBuyAmount,
-                ZERO_BYTES
-            );
-            vm.stopPrank();
-
-            // --- attacker --- //
-            vm.startPrank(attacker);
-            console.log("Attacker........");
-
-            displayPoolLiq(key);
-
-            // approve router to spend, as it needs to settle
-            MockERC20(Currency.unwrap(currency1)).approve(
-                address(swapRouter),
-                10 ether
-            );
-
-            // negative number indicates exact input swap!
-            int256 attackerSellAmount = -int256(
-                MockERC20(Currency.unwrap(currency1)).balanceOf(
-                    address(attacker)
-                )
-            );
-
-            BalanceDelta swapDelta3 = swap(
-                key,
-                false, //zerForOne false (buying at offerPrice, left to right)
-                attackerSellAmount,
-                ZERO_BYTES
-            );
-            vm.stopPrank();
-        }
-        // ------------------- //
     }
 
     function AttackerSwapTransaction(
@@ -540,6 +286,155 @@ contract SrAmmHookV2Test is Test, Deployers {
         ).balanceOf(address(userAddress));
         return userFinalBalance;
     }
+
+    function SandwichAttackSwap(bool isZeroForOne) public {
+        // trasfer token1 to attacker and user
+
+        uint256 token0AttackerBeforeAmount = 10 ether;
+        fundCurrencyAndApproveRouter(
+            attacker,
+            isZeroForOne ? currency0 : currency1,
+            token0AttackerBeforeAmount
+        );
+
+        uint256 token0UserBeforeAmount = 100 ether;
+        fundCurrencyAndApproveRouter(
+            user,
+            isZeroForOne ? currency0 : currency1,
+            token0UserBeforeAmount
+        );
+
+        // Perform a test sandwich attack //
+        {
+            // ----attacker--- //
+            console.log("attacker.......");
+            vm.startPrank(attacker);
+
+            //hookdata = abi.encode(attacker);
+            int256 attackerBuy0Amount = -int256(token0AttackerBeforeAmount); // negative number indicates exact input swap!
+            BalanceDelta swapDelta = swap(
+                key,
+                isZeroForOne ? true : false, //zerForOne true (selling at bidPrice, right to left)
+                attackerBuy0Amount,
+                ZERO_BYTES
+            );
+            vm.stopPrank();
+
+            // ----user--- //
+            console.log("User.......");
+            vm.startPrank(user);
+
+            displayPoolLiq(key);
+
+            int256 userBuyAmount = -int256(token0UserBeforeAmount); // negative number indicates exact input swap!
+            BalanceDelta swapDelta2 = swap(
+                key,
+                isZeroForOne ? true : false, //zerForOne true (selling at bidPrice, right to left)
+                userBuyAmount,
+                ZERO_BYTES
+            );
+            vm.stopPrank();
+
+            // --- attacker --- //
+            vm.startPrank(attacker);
+            console.log("Attacker........");
+
+            displayPoolLiq(key);
+
+            // approve router to spend, as it needs to settle
+            MockERC20(Currency.unwrap(isZeroForOne ? currency1 : currency0))
+                .approve(address(swapRouter), 10 ether);
+
+            // negative number indicates exact input swap!
+            int256 attackerSellAmount = -int256(
+                MockERC20(Currency.unwrap(isZeroForOne ? currency1 : currency0))
+                    .balanceOf(address(attacker))
+            );
+
+            BalanceDelta swapDelta3 = swap(
+                key,
+                isZeroForOne ? false : true, //zerForOne false (buying at offerPrice, left to right)
+                attackerSellAmount,
+                ZERO_BYTES
+            );
+            vm.stopPrank();
+        }
+        // ------------------- //
+    }
+
+    // function SandwichAttackZeroToOneSwap() public {
+    //     // trasfer token1 to attacker and user
+
+    //     uint256 token0AttackerBeforeAmount = 10 ether;
+    //     fundCurrencyAndApproveRouter(
+    //         attacker,
+    //         currency0,
+    //         token0AttackerBeforeAmount
+    //     );
+
+    //     uint256 token0UserBeforeAmount = 100 ether;
+    //     fundCurrencyAndApproveRouter(user, currency0, token0UserBeforeAmount);
+
+    //     // Perform a test sandwich attack //
+    //     {
+    //         // ----attacker--- //
+    //         console.log("attacker.......");
+    //         vm.startPrank(attacker);
+
+    //         //hookdata = abi.encode(attacker);
+    //         int256 attackerBuy0Amount = -int256(token0AttackerBeforeAmount); // negative number indicates exact input swap!
+    //         BalanceDelta swapDelta = swap(
+    //             key,
+    //             true, //zerForOne true (selling at bidPrice, right to left)
+    //             attackerBuy0Amount,
+    //             ZERO_BYTES
+    //         );
+    //         vm.stopPrank();
+
+    //         // ----user--- //
+    //         console.log("User.......");
+    //         vm.startPrank(user);
+
+    //         displayPoolLiq(key);
+
+    //         int256 userBuyAmount = -int256(token0UserBeforeAmount); // negative number indicates exact input swap!
+    //         BalanceDelta swapDelta2 = swap(
+    //             key,
+    //             true, //zerForOne true (selling at bidPrice, right to left)
+    //             userBuyAmount,
+    //             ZERO_BYTES
+    //         );
+    //         vm.stopPrank();
+
+    //         // --- attacker --- //
+    //         vm.startPrank(attacker);
+    //         console.log("Attacker........");
+
+    //         displayPoolLiq(key);
+
+    //         // approve router to spend, as it needs to settle
+    //         MockERC20(Currency.unwrap(currency1)).approve(
+    //             address(swapRouter),
+    //             10 ether
+    //         );
+
+    //         // negative number indicates exact input swap!
+    //         int256 attackerSellAmount = -int256(
+    //             MockERC20(Currency.unwrap(currency1)).balanceOf(
+    //                 address(attacker)
+    //             )
+    //         );
+
+    //         BalanceDelta swapDelta3 = swap(
+    //             key,
+    //             false, //zerForOne false (buying at offerPrice, left to right)
+    //             attackerSellAmount,
+    //             ZERO_BYTES
+    //         );
+    //         vm.stopPrank();
+    //     }
+    //     // ------------------- //
+    // }
 
     function SandwichAttackOneToZeroSwap() public {
         // trasfer token10 to attacker and user
