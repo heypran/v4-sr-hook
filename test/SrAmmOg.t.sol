@@ -18,7 +18,7 @@ import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
 
 import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
 
-contract SrAmmHookV2Test is Test, Deployers {
+contract SrAmmOgTest is Test, Deployers {
     using PoolIdLibrary for PoolKey;
     using CurrencyLibrary for Currency;
     using StateLibrary for IPoolManager;
@@ -300,47 +300,6 @@ contract SrAmmHookV2Test is Test, Deployers {
         assertEq(postSwapBid.sqrtPriceX96(), SQRT_PRICE_1_1);
         assertGt(userBalance0, 0.99e17);
     }
-
-    // function testSwap1TokenOnSrPoolWithVaryingLiquidity() public {
-    //     // positions were created in setup()
-    //     addLiquidityViaHook(1 ether, -2, 2);
-    //     addLiquidityViaHook(1 ether, 4, 6);
-
-    //     //.....-2 .... -1....0 ...1 .....2
-
-    //     // addLiquidityViaHook(1 ether, -2, 2);
-    //     // Perform a test swap //
-    //     displayPoolLiq(key);
-    //     uint256 userAmount = 0.75 ether;
-    //     fundCurrencyAndApproveRouter(user, currency1, userAmount);
-
-    //     vm.startPrank(user);
-
-    //     bool zeroForOne = false;
-
-    //     // negative number indicates exact input swap!
-    //     int256 amountSpecified = -int256(userAmount);
-
-    //     BalanceDelta swapDelta = swap(
-    //         key,
-    //         zeroForOne,
-    //         amountSpecified,
-    //         ZERO_BYTES
-    //     );
-    //     vm.stopPrank();
-    //     // ------------------- //
-
-    //     assertEq(int256(swapDelta.amount1()), amountSpecified);
-
-    //     uint256 userBalance0 = MockERC20(Currency.unwrap(currency0)).balanceOf(
-    //         address(user)
-    //     );
-    //     (Slot0 bid, Slot0 offer) = hook.getSrPoolSlot0(key);
-
-    //     displayPoolLiq(key);
-
-    //     assertGt(userBalance0, 0.99e17);
-    // }
 
     function testSrSwapOnSr001Pool() public {
         // positions were created in setup()

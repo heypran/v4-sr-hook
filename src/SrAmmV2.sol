@@ -26,6 +26,7 @@ import {SafeCast} from "v4-core/src/libraries/SafeCast.sol";
 import {CurrencyDelta} from "v4-core/src/libraries/CurrencyDelta.sol";
 import {NoDelegateCall} from "v4-core/src/NoDelegateCall.sol";
 import {Reserves} from "v4-core/src/libraries/Reserves.sol";
+import "forge-std/console.sol";
 
 contract SrAmmV2 is NoDelegateCall {
     using PoolIdLibrary for PoolKey;
@@ -40,15 +41,15 @@ contract SrAmmV2 is NoDelegateCall {
     mapping(PoolId id => SrPool.SrPoolState) internal _srPools;
     mapping(PoolId id => uint256 lastBlock) internal _lastBlock;
 
-    event Swap(
-        PoolId indexed id,
+    event Swapped(
+        PoolId id,
         address sender,
-        int128 amount0,
+        int128 indexed amount0,
         int128 amount1,
         uint160 sqrtPriceX96,
         uint128 liquidity,
-        int24 tick,
-        uint24 fee
+        int24 indexed tick,
+        uint24 indexed fee
     );
 
     function _initializePool(
@@ -66,7 +67,7 @@ contract SrAmmV2 is NoDelegateCall {
     }
 
     function srAmmSwap(
-        PoolKey calldata key,
+        PoolKey memory key,
         IPoolManager.SwapParams memory params
     ) internal returns (BalanceDelta swapDelta) {
         resetSlot(key);
@@ -86,7 +87,7 @@ contract SrAmmV2 is NoDelegateCall {
                 })
             );
 
-        emit Swap(
+        emit Swapped(
             key.toId(),
             msg.sender,
             result.amount0(),
@@ -96,6 +97,7 @@ contract SrAmmV2 is NoDelegateCall {
             srSwapState.tick,
             swapFee
         );
+
         return result;
     }
 
@@ -117,7 +119,7 @@ contract SrAmmV2 is NoDelegateCall {
         return result;
     }
 
-    function resetSlot(PoolKey calldata key) internal returns (bool) {
+    function resetSlot(PoolKey memory key) public returns (bool) {
         if (_lastBlock[key.toId()] == block.number) {
             return false;
         }
