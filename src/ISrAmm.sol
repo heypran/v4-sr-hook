@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 import {PoolId} from "v4-core/src/types/PoolId.sol";
 
-interface ISrAmmv2 {
+interface ISrAmm {
     event Swapped(
         PoolId id,
         address sender,

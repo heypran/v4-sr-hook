@@ -28,7 +28,7 @@ import {NoDelegateCall} from "v4-core/src/NoDelegateCall.sol";
 import {Reserves} from "v4-core/src/libraries/Reserves.sol";
 import "forge-std/console.sol";
 
-contract SrAmmV2 is NoDelegateCall {
+contract SrAmm is NoDelegateCall {
     using PoolIdLibrary for PoolKey;
     using SrPool for *;
     using SafeCast for *;
