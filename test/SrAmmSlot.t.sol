@@ -13,12 +13,12 @@ import {CurrencyLibrary, Currency} from "v4-core/src/types/Currency.sol";
 import {Slot0} from "v4-core/src/types/Slot0.sol";
 import {PoolSwapTest} from "v4-core/src/test/PoolSwapTest.sol";
 import {Deployers} from "v4-core/test/utils/Deployers.sol";
-import {SrAmmHookV2} from "../src/SrAmmHookV2.sol";
+import {SrAmmHook} from "../src/SrAmmHook.sol";
 import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
 import {LiquidityMath} from "v4-core/src/libraries/LiquidityMath.sol";
 import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
 import {SqrtPriceMath} from "v4-core/src/libraries/SqrtPriceMath.sol";
-import {ISrAmmv2} from "../src/ISrAmmV2.sol";
+import {ISrAmm} from "../src/ISrAmm.sol";
 import {SrAmmUtils} from "./SrAmmUtils.t.sol";
 
 // Slot (consider slot as block number, 12 sec for Ethereum)

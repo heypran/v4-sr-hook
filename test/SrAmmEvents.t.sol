@@ -13,12 +13,12 @@ import {CurrencyLibrary, Currency} from "v4-core/src/types/Currency.sol";
 import {Slot0} from "v4-core/src/types/Slot0.sol";
 import {PoolSwapTest} from "v4-core/src/test/PoolSwapTest.sol";
 import {Deployers} from "v4-core/test/utils/Deployers.sol";
-import {SrAmmHookV2} from "../src/SrAmmHookV2.sol";
+import {SrAmmHook} from "../src/SrAmmHook.sol";
 import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
 import {LiquidityMath} from "v4-core/src/libraries/LiquidityMath.sol";
 import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
 import {SqrtPriceMath} from "v4-core/src/libraries/SqrtPriceMath.sol";
-import {ISrAmmv2} from "../src/ISrAmmV2.sol";
+import {ISrAmm} from "../src/ISrAmm.sol";
 import {SrAmmUtils} from "./SrAmmUtils.t.sol";
 
 // test events
@@ -27,7 +27,7 @@ contract SrAmmIntializedEvent is Test, Deployers {
     using CurrencyLibrary for Currency;
     using StateLibrary for IPoolManager;
 
-    SrAmmHookV2 hook;
+    SrAmmHook hook;
     PoolId poolId;
 
     int24 tickSpacing = 1;
@@ -47,8 +47,8 @@ contract SrAmmIntializedEvent is Test, Deployers {
             ) ^ (0x4411 << 144) // Namespace the hook to avoid collisions
         );
 
-        deployCodeTo("SrAmmHookV2.sol:SrAmmHookV2", abi.encode(manager), flags);
-        hook = SrAmmHookV2(flags);
+        deployCodeTo("SrAmmHook.sol:SrAmmHook", abi.encode(manager), flags);
+        hook = SrAmmHook(flags);
 
         // Create the pool
         key = PoolKey(currency0, currency1, 100, tickSpacing, IHooks(hook));
@@ -77,7 +77,7 @@ contract SrAmmHookSwapEventsTest is SrAmmUtils {
         fundCurrencyAndApproveRouter(user, currency0, 10 ether);
         vm.startPrank(user);
         vm.expectEmit(true, true, true, false);
-        emit ISrAmmv2.Swapped(
+        emit ISrAmm.Swapped(
             poolId,
             address(swapRouter),
             -10000000000000000000,
@@ -100,7 +100,7 @@ contract SrAmmHookSwapEventsTest is SrAmmUtils {
         fundCurrencyAndApproveRouter(user, currency1, 10 ether);
         vm.startPrank(user);
         vm.expectEmit(true, true, true, false);
-        emit ISrAmmv2.Swapped(
+        emit ISrAmm.Swapped(
             poolId,
             address(swapRouter),
             9989011986914284407,

@@ -28,13 +28,13 @@ import {TransientStateLibrary} from "v4-core/src/libraries/TransientStateLibrary
 import {SafeCast} from "v4-core/src/libraries/SafeCast.sol";
 import {CurrencyDelta} from "v4-core/src/libraries/CurrencyDelta.sol";
 import {CurrencySettler} from "v4-core/test/utils/CurrencySettler.sol";
-import {SrAmmV2} from "./SrAmmV2.sol";
+import {SrAmm} from "./SrAmm.sol";
 
 // test libs
 import {CurrencySettler} from "v4-core/test/utils/CurrencySettler.sol";
 import "forge-std/console.sol";
 
-contract SrAmmHookV2 is BaseHook, SrAmmV2 {
+contract SrAmmHook is BaseHook, SrAmm {
     using PoolIdLibrary for PoolKey;
     // using StateLibrary for IPoolManager;
     using CurrencyDelta for Currency;
