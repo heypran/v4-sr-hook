@@ -46,38 +46,25 @@ contract SrAmmHookSlotTest is SrAmmUtils {
 
         assertEq(block.number, 1);
 
+        // mine a new block should reset tick
         vm.roll(block.number + 1);
 
         assertEq(block.number, 2);
 
-        (, , , , Slot0 bid3, Slot0 offer3) = displayPoolLiq(key);
-
         userSwapTransaction(20 ether, true, false, user3);
 
-        assertLt(bid3.tick(), 0);
+        (, , , , Slot0 bid3, Slot0 offer3) = displayPoolLiq(key);
 
+        assertEq(bid3.tick(), -259);
+        assertEq(offer3.tick(), -219);
+
+        // TODO: refactor function
         uint256 userFinalAmount = userSellBackTheCurrency(10 ether, user, true);
-        uint256 user2FinalAmount = userSellBackTheCurrency(
-            100 ether,
-            user2,
-            true
-        );
 
-        userSwapTransaction(100 ether, true, false, user3);
+        (, , , , Slot0 bid4, Slot0 offer4) = getPoolState(key);
 
-        vm.roll(block.number + 1);
-
-        assertEq(block.number, 3);
-        displayPoolLiq(key);
-        uint256 user3FinalAmount = userSellBackTheCurrency(
-            120 ether,
-            user3,
-            true
-        );
-
-        console.logUint(userFinalAmount);
-        console.logUint(user2FinalAmount);
-        console.logUint(user3FinalAmount);
+        assertEq(bid4.tick(), -239);
+        assertGt(offer4.tick(), -219);
     }
 
     function testMultipleSwapsFullRange1FZ() public {
@@ -87,39 +74,37 @@ contract SrAmmHookSlotTest is SrAmmUtils {
             TickMath.maxUsableTick(1)
         );
         userSwapTransaction(10 ether, false, false, user);
+
         (, , , , Slot0 bid1, Slot0 offer1) = displayPoolLiq(key);
+
         assertEq(offer1.tick(), 19);
         assertEq(bid1.tick(), 0);
 
         userSwapTransaction(100 ether, false, false, user2);
-        (, , , , Slot0 bid2, Slot0 offer2) = displayPoolLiq(key);
+
+        (, , , , Slot0 bid2, Slot0 offer2) = getPoolState(key);
+
         assertEq(offer2.tick(), 218);
         assertEq(bid2.tick(), 0);
+
         assertEq(block.number, 1);
         vm.roll(block.number + 1);
         assertEq(block.number, 2);
-        uint256 userFinalAmount = userSellBackTheCurrency(
-            10 ether,
-            user,
-            false
-        );
-        (, , , , Slot0 bid3, Slot0 offer3) = displayPoolLiq(key);
-        assertGt(bid3.tick(), 0); // After the block incremented and during the next swap the ticks get reset to the offer tick.
-        displayPoolLiq(key);
-        uint256 user2FinalAmount = userSellBackTheCurrency(
-            100 ether,
-            user2,
-            false
-        );
+
+        // zeroForOne
+        userSellBackTheCurrency(10 ether, user, false);
+
+        (, , , , Slot0 bid3, Slot0 offer3) = getPoolState(key);
+
+        // 198
+        assertLt(bid3.tick(), 218);
+        assertEq(offer3.tick(), 218);
+
         userSwapTransaction(100 ether, false, false, user3);
-        displayPoolLiq(key);
-        vm.roll(block.number + 1);
-        assertEq(block.number, 3);
-        displayPoolLiq(key);
-        uint256 user3FinalAmount = userSellBackTheCurrency(
-            100 ether,
-            user3,
-            false
-        );
+        (, , , , Slot0 bid4, Slot0 offer4) = getPoolState(key);
+
+        // bid tick should move back to slot start tick
+        assertEq(bid4.tick(), 218);
+        assertGt(offer4.tick(), 218);
     }
 }

@@ -160,6 +160,25 @@ contract SrAmmUtils is Test, Deployers {
         return (bidLiq, offerLiq, vBLiq, vOLiq, bid, offer);
     }
 
+    function getPoolState(
+        PoolKey memory key
+    )
+        internal
+        returns (
+            uint128 bidLiq,
+            uint128 offerLiq,
+            uint128 vBLiq,
+            uint128 vOLiq,
+            Slot0 bid,
+            Slot0 offer
+        )
+    {
+        (bidLiq, offerLiq, vBLiq, vOLiq) = hook.getSrPoolLiquidity(key);
+        (bid, offer) = hook.getSrPoolSlot0(key);
+
+        return (bidLiq, offerLiq, vBLiq, vOLiq, bid, offer);
+    }
+
     function calculateVirtualLiquidity(
         uint160 sqrtBidPriceX96,
         uint160 sqrtPriceStartX96,

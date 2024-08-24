@@ -38,8 +38,13 @@ contract SrAmm is NoDelegateCall {
 
     using LPFeeLibrary for uint24;
 
+    struct LastSlot {
+        uint256 blockNumber;
+        bool zeroForOne;
+    }
+
     mapping(PoolId id => SrPool.SrPoolState) internal _srPools;
-    mapping(PoolId id => uint256 lastBlock) internal _lastBlock;
+    mapping(PoolId id => LastSlot) internal _lastBlock;
 
     event Swapped(
         PoolId id,
@@ -70,7 +75,7 @@ contract SrAmm is NoDelegateCall {
         PoolKey memory key,
         IPoolManager.SwapParams memory params
     ) internal returns (BalanceDelta swapDelta) {
-        resetSlot(key);
+        resetSlot(key, params.zeroForOne);
 
         (
             BalanceDelta result,
@@ -119,13 +124,29 @@ contract SrAmm is NoDelegateCall {
         return result;
     }
 
-    function resetSlot(PoolKey memory key) public returns (bool) {
-        if (_lastBlock[key.toId()] == block.number) {
+    function resetSlot(
+        PoolKey memory key,
+        bool zeroForOne
+    ) public returns (bool) {
+        if (_lastBlock[key.toId()].blockNumber == block.number) {
             return false;
         }
 
-        _srPools[key.toId()].initializeAtNewSlot();
-        _lastBlock[key.toId()] = block.number;
+        // TODO: remove
+        // should be reset at every slot change
+        // _srPools[key.toId()].initializeAtNewSlot();
+
+        SrPool.SrPoolState storage poolState = _srPools[key.toId()];
+
+        if (_lastBlock[key.toId()].zeroForOne) {
+            poolState.offer = poolState.bid;
+        } else {
+            poolState.bid = poolState.offer;
+        }
+        poolState.slotStartSqrtPriceX96 = poolState.offer.sqrtPriceX96();
+
+        _lastBlock[key.toId()].blockNumber = block.number;
+        _lastBlock[key.toId()].zeroForOne = zeroForOne;
 
         return true;
     }
