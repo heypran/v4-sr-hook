@@ -249,10 +249,6 @@ contract SrAmmHook is BaseHook, SrAmm {
         return BaseHook.afterInitialize.selector;
     }
 
-    function resetBlockSlot(PoolKey memory key) public returns (bool) {
-        return resetSlot(key);
-    }
-
     // only testing
     function getSrPoolLiquidity(
         PoolKey memory key
