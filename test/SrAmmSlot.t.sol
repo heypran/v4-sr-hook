@@ -1,0 +1,110 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import "forge-std/Test.sol";
+import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
+import {Hooks} from "v4-core/src/libraries/Hooks.sol";
+import {TickMath} from "v4-core/src/libraries/TickMath.sol";
+import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
+import {PoolKey} from "v4-core/src/types/PoolKey.sol";
+import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
+import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
+import {CurrencyLibrary, Currency} from "v4-core/src/types/Currency.sol";
+import {Slot0} from "v4-core/src/types/Slot0.sol";
+import {PoolSwapTest} from "v4-core/src/test/PoolSwapTest.sol";
+import {Deployers} from "v4-core/test/utils/Deployers.sol";
+import {SrAmmHook} from "../src/SrAmmHook.sol";
+import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
+import {LiquidityMath} from "v4-core/src/libraries/LiquidityMath.sol";
+import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
+import {SqrtPriceMath} from "v4-core/src/libraries/SqrtPriceMath.sol";
+import {ISrAmm} from "../src/ISrAmm.sol";
+import {SrAmmUtils} from "./SrAmmUtils.t.sol";
+
+// Slot (consider slot as block number, 12 sec for Ethereum)
+contract SrAmmHookSlotTest is SrAmmUtils {
+    function testMultipleSwapsFullRangeZF1() public {
+        addLiquidityViaHook(
+            10000 ether,
+            TickMath.minUsableTick(1),
+            TickMath.maxUsableTick(1)
+        );
+
+        userSwapTransaction(10 ether, true, false, user);
+
+        (, , , , Slot0 bid1, Slot0 offer1) = displayPoolLiq(key);
+
+        assertEq(offer1.tick(), 0);
+        assertEq(bid1.tick(), -20);
+
+        userSwapTransaction(100 ether, true, false, user2);
+
+        (, , , , Slot0 bid2, Slot0 offer2) = displayPoolLiq(key);
+
+        assertEq(offer2.tick(), 0);
+        assertEq(bid2.tick(), -219);
+
+        assertEq(block.number, 1);
+
+        // mine a new block should reset tick
+        vm.roll(block.number + 1);
+
+        assertEq(block.number, 2);
+
+        userSwapTransaction(20 ether, true, false, user3);
+
+        (, , , , Slot0 bid3, Slot0 offer3) = displayPoolLiq(key);
+
+        assertEq(bid3.tick(), -259);
+        assertEq(offer3.tick(), -219);
+
+        // TODO: refactor function
+        uint256 userFinalAmount = userSellBackTheCurrency(10 ether, user, true);
+
+        (, , , , Slot0 bid4, Slot0 offer4) = getPoolState(key);
+
+        assertEq(bid4.tick(), -239);
+        assertGt(offer4.tick(), -219);
+    }
+
+    function testMultipleSwapsFullRange1FZ() public {
+        addLiquidityViaHook(
+            10000 ether,
+            TickMath.minUsableTick(1),
+            TickMath.maxUsableTick(1)
+        );
+        userSwapTransaction(10 ether, false, false, user);
+
+        (, , , , Slot0 bid1, Slot0 offer1) = displayPoolLiq(key);
+
+        assertEq(offer1.tick(), 19);
+        assertEq(bid1.tick(), 0);
+
+        userSwapTransaction(100 ether, false, false, user2);
+
+        (, , , , Slot0 bid2, Slot0 offer2) = getPoolState(key);
+
+        assertEq(offer2.tick(), 218);
+        assertEq(bid2.tick(), 0);
+
+        assertEq(block.number, 1);
+        vm.roll(block.number + 1);
+        assertEq(block.number, 2);
+
+        // zeroForOne
+        userSellBackTheCurrency(10 ether, user, false);
+
+        (, , , , Slot0 bid3, Slot0 offer3) = getPoolState(key);
+
+        // 198
+        assertLt(bid3.tick(), 218);
+        assertEq(offer3.tick(), 218);
+
+        userSwapTransaction(100 ether, false, false, user3);
+        (, , , , Slot0 bid4, Slot0 offer4) = getPoolState(key);
+
+        // bid tick should move back to slot start tick
+        assertEq(bid4.tick(), 218);
+        assertGt(offer4.tick(), 218);
+    }
+}
